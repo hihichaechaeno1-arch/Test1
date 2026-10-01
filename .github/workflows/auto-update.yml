@@ -2,9 +2,9 @@ name: Auto Update YouTube Videos
 
 on:
   schedule:
-    # 每天 UTC 時間 00:00 與 12:00（即香港時間早上 8 點與晚上 8 點）自動執行
+    # 每天 UTC 時間 00:00 與 12:00（香港時間早上 8 點與晚上 8 點）自動執行
     - cron: '0 0,12 * * *'
-  # 允許喺 GitHub 手動點擊按鈕立即執行測試
+  # 支援手動立即測試
   workflow_dispatch:
 
 jobs:
@@ -20,7 +20,7 @@ jobs:
           node-version: 20
 
       - name: 安裝 Supabase 依賴
-        run: npm install @supabase/supabase-js
+        run: npm install @supabase/supabase-js --no-package-lock --legacy-peer-deps
 
       - name: 執行更新腳本
         env:
