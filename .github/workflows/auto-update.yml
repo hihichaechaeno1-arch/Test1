@@ -2,9 +2,7 @@ name: Auto Update YouTube Videos
 
 on:
   schedule:
-    # 每天 UTC 時間 00:00 與 12:00（香港時間早上 8 點與晚上 8 點）自動執行
     - cron: '0 0,12 * * *'
-  # 支援手動立即測試
   workflow_dispatch:
 
 jobs:
@@ -27,4 +25,6 @@ jobs:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node scripts/fetch-youtube.js
+        run: |
+          echo "正在驗證 Secrets 注入狀態..."
+          node scripts/fetch-youtube.js
