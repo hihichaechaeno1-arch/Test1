@@ -18,7 +18,7 @@ const MEMBER_MAP = {
   'Carmen': ['carmen', '카르멘'],
   'Jiwoo': ['jiwoo', '지우'],
   'Yuha': ['yuha', '유하'],
-  'Stella': ['stella', '스텔라'],
+  'Stella': ['stella', '스텔拉', '스텔라'],
   'Juun': ['juun', '준'],
   'A-na': ['a-na', 'ana', '아나'],
   'Ian': ['ian', '이안'],
@@ -81,7 +81,6 @@ async function run() {
 
     const members = detectMembers(title + ' ' + (item.snippet.description || ''));
 
-    // 檢查資料庫是否已存在
     const { data: existing, error: selectErr } = await supabase
       .from('videos')
       .select('id')
