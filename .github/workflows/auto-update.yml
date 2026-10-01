@@ -27,4 +27,4 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           echo "正在驗證 Secrets 注入狀態..."
-          node scripts/fetch-youtube.js
+          node scripts/fetch-youtube.cjs
