@@ -38,8 +38,10 @@ function detectMembers(text) {
 }
 
 async function run() {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false },
+  realtime: { autoRefreshToken: false, createClient: () => null }
+});
   console.log('=== [2] 發送 YouTube API 請求 ===');
   const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=Hearts2Hearts&maxResults=10&order=date&type=video&key=${YOUTUBE_API_KEY}`;
 
