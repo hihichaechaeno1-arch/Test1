@@ -28,13 +28,15 @@ export const VideoCard: React.FC<VideoCardProps> = ({
     >
       {/* 1. Thumbnail Container */}
       <div className="relative aspect-video w-full overflow-hidden bg-slate-100 shrink-0">
-        <img
-          src={video.thumbnailUrl}
-          alt={video.title}
-          referrerPolicy="no-referrer"
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-
+      <img
+  src={video.thumbnail || video.thumbnailUrl || "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&auto=format&fit=crop"}
+  alt={video.title}
+  referrerPolicy="no-referrer"
+  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+  onError={(e) => {
+    (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&auto=format&fit=crop";
+  }}
+/>
         {/* Video Scrim & Hover Play Overlay */}
         <div className="absolute inset-0 bg-black/15 group-hover:bg-black/35 transition-colors flex items-center justify-center">
           <div className="w-11 h-11 rounded-full bg-white/95 group-hover:bg-rose-600 text-slate-900 group-hover:text-white flex items-center justify-center shadow-md transition-all duration-300 group-hover:scale-110">
