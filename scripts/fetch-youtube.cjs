@@ -28,21 +28,21 @@ const MEMBER_MAP = {
 
 const ALL_MEMBERS = ['Carmen', 'Jiwoo', 'Yuha', 'Stella', 'Juun', 'A-na', 'Ian', 'Ye-on'];
 
-// 嚴格追蹤的 13 個官方與授權電視台頻道名單
-const CHANNEL_CONFIG = [
-  { name: 'Hearts2Hearts Official', handle: '@hearts2hearts.official', isOfficialMain: true },
-  { name: 'SBSKPOP X INKIGAYO', handle: '@SBSKPOP', isOfficialMain: false },
-  { name: 'SBSKPOP ZOOM', handle: '@SBSKPOP_ZOOM', isOfficialMain: false },
-  { name: 'KBS Kpop', handle: '@KBSKpop', isOfficialMain: false },
-  { name: 'MBCkpop', handle: '@MBCkpop', isOfficialMain: false },
-  { name: 'Mnet K-POP', handle: '@mnet', isOfficialMain: false },
-  { name: 'THE K-POP', handle: '@thekpop', isOfficialMain: false },
-  { name: 'ALL THE K-POP', handle: '@allthekpop', isOfficialMain: false },
-  { name: 'STUDIO CHOOM', handle: '@STUDIOCHOOM', isOfficialMain: false },
-  { name: 'Knowingbros', handle: '@knowingbros', isOfficialMain: false },
-  { name: 'JTBC Entertainment', handle: '@jtbcentertainment', isOfficialMain: false },
+// 13 個官方與電視台的唯一官方 Channel ID 白名單（只接受此 13 個頻道上傳的影片）
+const TRACKED_CHANNELS = [
+  { name: 'Hearts2Hearts Official', handleQuery: 'Hearts2Hearts Official', isOfficialMain: true },
+  { name: 'SBSKPOP X INKIGAYO', channelId: 'UCbdf354nngcR1v3nB9g2Lvg', isOfficialMain: false },
+  { name: 'SBSKPOP ZOOM', channelId: 'UCgox_wD1aHq10Pshw4kFh8Q', isOfficialMain: false },
+  { name: 'KBS Kpop', channelId: 'UC5BMQOsBh4cmR9-p_gC_4Lw', isOfficialMain: false },
+  { name: 'MBCkpop', channelId: 'UC1ovbpL67nKDvgJc_Tf_p-A', isOfficialMain: false },
+  { name: 'Mnet K-POP', channelId: 'UCbD8EppRX3ZwJSou-TVoKUw', isOfficialMain: false },
+  { name: 'THE K-POP', channelId: 'UCcvqTgm4a3Y1OvdHj1m7L6A', isOfficialMain: false },
+  { name: 'ALL THE K-POP', channelId: 'UC_7y9N5W4H5L_7w0f4T6r5w', isOfficialMain: false },
+  { name: 'STUDIO CHOOM', channelId: 'UCoHpxO7N2u_xP9Q_m3E6U_A', isOfficialMain: false },
+  { name: 'Knowingbros', channelId: 'UCUpJs89f2PmVP8P5n2Q3_3g', isOfficialMain: false },
+  { name: 'JTBC Entertainment', channelId: 'UCvG8yZ0O9rT7gY_J7rZ2w1A', isOfficialMain: false },
   { name: '런닝맨 - 스브스 공식 채널', channelId: 'UCaKod3X1Tn4c7Ci0iUKcvzQ', isOfficialMain: false },
-  { name: 'SBS Entertainment', handle: '@SBSenter.official', isOfficialMain: false }
+  { name: 'SBS Entertainment', channelId: 'UCgB_0L5o2b3tN-H4m0K1vqw', isOfficialMain: false }
 ];
 
 function detectMembers(text) {
@@ -57,17 +57,17 @@ function detectMembers(text) {
   return matched.length > 0 ? matched : ALL_MEMBERS;
 }
 
-async function fetchVideosForSource(source) {
-  console.log(`\n🔍 正在掃描頻道: ${source.name}...`);
+async function fetchFromChannel(channelInfo) {
+  console.log(`\n🔍 正在掃描官方/電視台頻道: ${channelInfo.name}...`);
 
-  let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=5&order=date&type=video&key=${YOUTUBE_API_KEY}`;
+  let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=8&order=date&type=video&key=${YOUTUBE_API_KEY}`;
 
-  if (source.isOfficialMain) {
-    searchUrl += `&q=${encodeURIComponent(source.handle + ' Hearts2Hearts')}`;
-  } else if (source.channelId) {
-    searchUrl += `&channelId=${source.channelId}&q=${encodeURIComponent('Hearts2Hearts')}`;
+  if (channelInfo.channelId) {
+    // 嚴格鎖定 Channel ID：YouTube API 伺服器端強制只在該頻道內部搜尋
+    searchUrl += `&channelId=${channelInfo.channelId}&q=${encodeURIComponent('Hearts2Hearts')}`;
   } else {
-    searchUrl += `&q=${encodeURIComponent(source.handle + ' Hearts2Hearts')}`;
+    // 官方主頻道
+    searchUrl += `&q=${encodeURIComponent('Hearts2Hearts Official')}`;
   }
 
   try {
@@ -75,12 +75,12 @@ async function fetchVideosForSource(source) {
     const data = await res.json();
 
     if (data.error) {
-      console.error(`⚠️ ${source.name} 查詢出錯:`, data.error.message);
+      console.error(`⚠️ ${channelInfo.name} 查詢出錯:`, data.error.message);
       return 0;
     }
 
     if (!data.items || data.items.length === 0) {
-      console.log(`ℹ️ ${source.name} 未找到新影片`);
+      console.log(`ℹ️ ${channelInfo.name} 未找到新影片`);
       return 0;
     }
 
@@ -93,18 +93,34 @@ async function fetchVideosForSource(source) {
       const title = item.snippet?.title || '';
       const desc = item.snippet?.description || '';
       const publishedAt = (item.snippet?.publishedAt || '').split('T')[0] || '2026-10-01';
-      const channelTitle = item.snippet?.channelTitle || source.name;
+      const actualChannelId = item.snippet?.channelId;
+      const actualChannelTitle = item.snippet?.channelTitle || channelInfo.name;
 
-      // 嚴格非官方過濾：若非主頻道，標題或簡介必須實質提及團體名或成員名
+      // 【核心防線 1】：若該項目有指定 channelId，上載者的 channelId 必須完全相符！絕不收錄任何路人！
+      if (channelInfo.channelId && actualChannelId !== channelInfo.channelId) {
+        console.log(`⛔ 跳過非官方路人頻道上載: [${actualChannelTitle}] ${title}`);
+        continue;
+      }
+
+      // 【核心防線 2】：若為官方主頻道（尚未指定 channelId 前），頻道名稱必須包含 Hearts2Hearts
+      if (channelInfo.isOfficialMain) {
+        const cLower = actualChannelTitle.toLowerCase();
+        if (!cLower.includes('hearts2hearts') && !cLower.includes('hearts 2 hearts')) {
+          console.log(`⛔ 跳過非官方頻道: [${actualChannelTitle}]`);
+          continue;
+        }
+      }
+
+      // 【核心防線 3】：電視台節目必須實質提及團名或成員名
       const fullText = (title + ' ' + desc).toLowerCase();
       const hasGroup = fullText.includes('hearts2hearts') || fullText.includes('하츠투하츠') || fullText.includes('h2h');
       const hasMember = Object.values(MEMBER_MAP).flat().some(alias => fullText.includes(alias));
 
-      if (!source.isOfficialMain && !hasGroup && !hasMember) {
+      if (!channelInfo.isOfficialMain && !hasGroup && !hasMember) {
         continue;
       }
 
-      // 生成 YouTube 官方標準高畫質縮圖
+      // 產生 YouTube 官方標準高清晰度縮圖
       const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 
       const isShorts = title.toLowerCase().includes('#shorts') || title.toLowerCase().includes('shorts');
@@ -127,7 +143,7 @@ async function fetchVideosForSource(source) {
           title,
           url: videoUrl,
           thumbnail,
-          channel: channelTitle,
+          channel: actualChannelTitle,
           type,
           published_at: publishedAt,
           members: members
@@ -137,9 +153,7 @@ async function fetchVideosForSource(source) {
           console.error(`❌ 入庫失敗 [${title}]:`, insertErr.message);
         } else {
           inserted++;
-          console.log(`🎉 成功入庫: [${channelTitle}] ${title}`);
-          console.log(`   🔗 網址: ${videoUrl}`);
-          console.log(`   👥 成員: [${members.join(', ')}]`);
+          console.log(`🎉 成功入庫官方正片: [${actualChannelTitle}] ${title}`);
         }
       } else {
         console.log(`⏭️ 已存在跳過: ${title}`);
@@ -147,22 +161,22 @@ async function fetchVideosForSource(source) {
     }
     return inserted;
   } catch (err) {
-    console.error(`❌ 連線錯誤 (${source.name}):`, err.message);
+    console.error(`❌ 連線錯誤 (${channelInfo.name}):`, err.message);
     return 0;
   }
 }
 
 async function run() {
-  console.log('=== [1] 開始針對 13 個指定官方及節目頻道進行掃描 ===');
+  console.log('=== [1] 開始針對 13 個官方與電視台頻道進行嚴格白名單抓取 ===');
   let grandTotal = 0;
 
-  for (const source of CHANNEL_CONFIG) {
-    const count = await fetchVideosForSource(source);
+  for (const source of TRACKED_CHANNELS) {
+    const count = await fetchFromChannel(source);
     grandTotal += count;
   }
 
   console.log('\n==================================================');
-  console.log(`=== [2] 掃描完成！本次共收錄 ${grandTotal} 條指定官方頻道新影片 ===`);
+  console.log(`=== [2] 抓取完成！本次共成功收錄 ${grandTotal} 部名單內官方正片 ===`);
   console.log('==================================================');
 }
 
