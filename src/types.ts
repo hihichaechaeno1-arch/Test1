@@ -35,7 +35,7 @@ export interface VideoItem {
   id: string;
   title: string;
   type: VideoType;
-  category: 'mv' | 'dance' | 'vlog' | 'variety' | 'shorts';
+  category: VideoCategory;
   channel: string;
   members: MemberName[];
   duration: string;
@@ -45,4 +45,5 @@ export interface VideoItem {
   youtubeId: string;
   description: string;
   highlightNote?: string;
+  isSample?: boolean;
 }

@@ -1,1 +1,67 @@
-Testing
+# Hearts2Hearts Video Archive
+
+A Traditional Chinese React/Vite fan archive that filters videos and Shorts by **all selected member tags**, format, and title/channel/description keywords. Tags are unverified associations, **not proof of on-screen co-appearance**.
+
+The browser reads Supabase; a separate Node/GitHub Actions importer searches owner-approved YouTube channel IDs. Demo content is explicitly labeled and cannot open unrelated videos.
+
+## Quick start
+
+Requirements: **Node 22.12+** and **Bun 1.4.2**.
+
+```bash
+bun install --frozen-lockfile
+cp .env.example .env.local
+# Edit public Supabase settings for live data, or leave both blank for demo.
+bun run dev
+```
+
+Open `http://localhost:3000`. The dev server listens on all interfaces; use a trusted network.
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-public-client-key
+NEXT_PUBLIC_VIDEO_ROW_FORMAT=legacy
+NEXT_PUBLIC_YOUTUBE_CHANNEL_ID=
+```
+
+Only public Supabase client keys belong here. **Never expose a service-role/secret key or YouTube API key through a `VITE_`/`NEXT_PUBLIC_` variable.** Environment values are embedded at build time.
+
+| Command | Purpose |
+| --- | --- |
+| `bun run dev` | Vite development server, port 3000. |
+| `bun run test` | Node regression tests using the existing tsx loader. |
+| `bun run lint` | Type-check with `tsc --noEmit`; not ESLint. |
+| `bun run build` | Type-check first, then build `dist/`. |
+| `bun run preview` | Local preview of built files. |
+| `bun run clean` | Delete `dist/` and root `server.js`; destructive. |
+
+Dependencies and Bun are pinned; CI uses the existing Bun lockfile. Equivalent `npm run ...` scripts work after installation, but Bun is the reproducible installation route.
+
+## Status and owner requirements
+
+Local tests, type-checking, and build pass. See [remediation status](docs/REMEDIATION.md) for all 15 review findings, implemented changes, and external blockers.
+
+**Do not enable production ingestion yet without inspecting the actual database.** The table must support the documented fields (including `description`), privileged metadata updates, public read policies, stable IDs, and reviewed duplicate/uniqueness protection. Channel identities and content rights remain owner-verification tasks. No live migration or import was executed.
+
+GitHub ingestion is gated by `ENABLE_YOUTUBE_SYNC=true` and an explicit `YOUTUBE_CHANNEL_IDS` variable. See [setup](docs/SETUP_CONFIGURATION.md) and [sync operations](docs/YOUTUBE_SYNC.md).
+
+## Documentation
+
+Start at [docs/README.md](docs/README.md).
+
+- [Remediation status](docs/REMEDIATION.md)
+- [User guide](docs/USER_GUIDE.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Setup/configuration](docs/SETUP_CONFIGURATION.md)
+- [Data model](docs/DATA_MODEL.md)
+- [YouTube synchronization](docs/YOUTUBE_SYNC.md)
+- [Deployment/operations](docs/DEPLOYMENT_OPERATIONS.md)
+- [Development/testing](docs/DEVELOPMENT_TESTING.md)
+- [Original review findings](docs/PROJECT_REVIEW.md)
+- [Content/licensing register](docs/CONTENT_PROVENANCE.md)
+
+## Scope and ownership
+
+The active page has member controls, five presets, format tabs, keyword search, video cards, and a footer. Multi-tab navigation, member profiles, recommendation panels, and embedded playback components are retained but not mounted. No server, authentication, admin UI, or Gemini feature is implemented.
+
+This is an unofficial fan project. Existing SPDX headers do not establish asset rights or independently verify biographies. A root license must be confirmed by the owner rather than guessed. **Changes remain uncommitted and unpushed.**

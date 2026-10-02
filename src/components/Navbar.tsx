@@ -100,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-full shadow-sm hover:shadow transition-all"
           >
             <Youtube className="w-3.5 h-3.5 text-rose-400" />
-            <span>官方頻道</span>
+            <span>YouTube</span>
           </a>
         </div>
       </div>

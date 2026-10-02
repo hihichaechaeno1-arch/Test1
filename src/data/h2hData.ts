@@ -5,10 +5,10 @@
 
 import { Member, VideoItem } from '../types';
 
-import heroGroupImg from '../assets/images/hero_h2h_group_1790790752463.jpg';
-import summerConceptImg from '../assets/images/h2h_concept_summer_1790790764260.jpg';
-import dancePracticeImg from '../assets/images/h2h_dance_practice_1790790775576.jpg';
-import vlogThumbnailImg from '../assets/images/h2h_vlog_thumbnail_1790790786654.jpg';
+import heroGroupImg from '../assets/images/hero_h2h_group_1790790752463.webp';
+import summerConceptImg from '../assets/images/h2h_concept_summer_1790790764260.webp';
+import dancePracticeImg from '../assets/images/h2h_dance_practice_1790790775576.webp';
+import vlogThumbnailImg from '../assets/images/h2h_vlog_thumbnail_1790790786654.webp';
 
 export const H2H_MEMBERS: Member[] = [
   {

@@ -102,7 +102,7 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            點擊下方圓形頭像可複選多位成員，系統將嚴格搜尋全員共同出席的影片
+            複選成員會搜尋包含所有所選標籤的影片；標籤不代表已核實共同出演
           </p>
         </div>
 
@@ -135,7 +135,9 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
                 key={member.id}
                 type="button"
                 onClick={() => onToggleMember(member.name)}
-                className="group flex flex-col items-center cursor-pointer transition-transform duration-150 active:scale-95 focus:outline-none"
+                aria-pressed={isSelected}
+                aria-label={`選取 ${member.name}`}
+                className="group flex flex-col items-center cursor-pointer transition-transform duration-150 active:scale-95 rounded-lg focus-visible:outline-2 focus-visible:outline-rose-500 focus-visible:outline-offset-4"
               >
                 {/* Circular Avatar with Image & Fallback */}
                 <MemberAvatarItem
@@ -186,6 +188,7 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
                 }}
                 className="hover:text-rose-900 hover:bg-rose-200/60 rounded-full p-0.5 transition-colors cursor-pointer"
                 title={`取消選取 ${name}`}
+                aria-label={`取消選取 ${name}`}
               >
                 <X className="w-3 h-3" />
               </button>

@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { H2H_MEMBERS, MOCK_VIDEOS } from './data/h2hData';
 import { MemberName, VideoItem, VideoType } from './types';
-import { supabase, mapSupabaseRowToVideoItem } from './lib/supabase';
+import { supabase, supabaseConfigError } from './lib/supabase';
+import { fetchArchiveVideos } from './lib/archive';
 import { MemberSelector } from './components/MemberSelector';
 import { VideoCard } from './components/VideoCard';
 import { Footer } from './components/Footer';
@@ -17,6 +18,10 @@ export default function App() {
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [dataSource, setDataSource] = useState<'live' | 'demo' | 'empty' | 'error'>('empty');
+  const request = useRef<AbortController | null>(null);
+  const channelId = import.meta.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || '';
+  const hasChannel = /^UC[A-Za-z0-9_-]{22}$/.test(channelId);
 
   // Member selection state (multiple selection supported)
   const [selectedMembers, setSelectedMembers] = useState<MemberName[]>([]);
@@ -27,51 +32,44 @@ export default function App() {
   // Search keyword query
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Fetch videos from Supabase 'videos' table on component mount
+  const showDemo = useCallback(() => {
+    request.current?.abort();
+    setVideos(MOCK_VIDEOS.map(video => ({ ...video, isSample: true }))
+      .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)));
+    setDataSource('demo');
+    setFetchError(null);
+    setIsLoading(false);
+  }, []);
+
   const fetchVideosFromSupabase = useCallback(async () => {
+    request.current?.abort();
+    const controller = new AbortController();
+    request.current = controller;
     setIsLoading(true);
     setFetchError(null);
-
     try {
-      // Query videos from Supabase table ordered by published_at DESC
-      let { data, error } = await supabase
-        .from('videos')
-        .select('*')
-        .order('published_at', { ascending: false });
-
-      // If ordering by published_at failed, try ordering by publishedAt or default query
-      if (error) {
-        const retry = await supabase
-          .from('videos')
-          .select('*');
-
-        if (retry.error) {
-          throw retry.error;
-        }
-        data = retry.data;
-      }
-
-      if (data && data.length > 0) {
-        const mapped = data.map(mapSupabaseRowToVideoItem);
-        // Sort descending by publication date
-        mapped.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
-        setVideos(mapped);
-      } else {
-        // Fallback to MOCK_VIDEOS if table is currently empty
-        setVideos(MOCK_VIDEOS);
-      }
-    } catch (err: any) {
-      console.warn('Supabase fetch error, using fallback data:', err);
-      setFetchError(err.message || '無法從 Supabase 取得資料');
-      // Graceful fallback to initial mock dataset so the website is always functional
-      setVideos(MOCK_VIDEOS);
+      if (supabaseConfigError) throw new Error(supabaseConfigError);
+      if (!supabase) { showDemo(); return; }
+      const rowFormat = import.meta.env.NEXT_PUBLIC_VIDEO_ROW_FORMAT || 'legacy';
+      if (rowFormat !== 'legacy' && rowFormat !== 'canonical') throw new Error('影片欄位格式設定無效');
+      const loaded = await fetchArchiveVideos(supabase,
+        AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]), rowFormat);
+      if (controller.signal.aborted) return;
+      setVideos(loaded);
+      setDataSource(loaded.length ? 'live' : 'empty');
+    } catch {
+      if (controller.signal.aborted) return;
+      setVideos([]);
+      setDataSource('error');
+      setFetchError('無法載入完整資料；請檢查公開設定、資料表欄位及讀取權限後重試。');
     } finally {
-      setIsLoading(false);
+      if (!controller.signal.aborted) setIsLoading(false);
     }
-  }, []);
+  }, [showDemo]);
 
   useEffect(() => {
     fetchVideosFromSupabase();
+    return () => request.current?.abort();
   }, [fetchVideosFromSupabase]);
 
   // Toggle single member in selection
@@ -144,26 +142,24 @@ export default function App() {
                 Hearts2Hearts
               </span>
               <span className="text-[10px] text-slate-400 font-medium hidden sm:inline leading-none">
-                成員同框影像資料庫
+                成員標籤影像資料庫
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Supabase status indicator */}
-            <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/70">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Supabase 資料庫連線</span>
+            <div role="status" className="hidden md:flex px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700">
+              {isLoading ? '載入中' : dataSource === 'live' ? '資料庫資料' : dataSource === 'demo' ? '示範資料' : dataSource === 'error' ? '連線或資料錯誤' : '資料庫暫無資料'}
             </div>
 
             <a
-              href="https://www.youtube.com"
+              href={hasChannel ? `https://www.youtube.com/channel/${channelId}` : 'https://www.youtube.com'}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-rose-600 rounded-full border border-slate-200 hover:border-rose-200 bg-white transition-colors shadow-2xs"
             >
               <Youtube className="w-3.5 h-3.5 text-rose-500" />
-              <span>官方頻道</span>
+              <span>{hasChannel ? '已設定頻道' : 'YouTube'}</span>
             </a>
           </div>
         </div>
@@ -178,11 +174,25 @@ export default function App() {
             <span>H2H Video & Shorts Archive</span>
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900">
-            Hearts2Hearts 成員同框搜尋
+            Hearts2Hearts 成員標籤搜尋
           </h1>
           <p className="text-sm sm:text-base text-slate-600 font-normal">
-            選擇成員，找出他們一起出現的影片
+            依成員標籤搜尋影片；文字推測及舊資料標籤未經同框核實
           </p>
+        </div>
+
+        <div role={dataSource === 'error' ? 'alert' : 'status'} className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 space-y-2">
+          <p>{isLoading ? '正在載入完整影片資料...' : dataSource === 'demo'
+            ? '目前為示範資料：標題與成員資訊僅供介面測試，示範卡片不提供播放連結。'
+            : dataSource === 'error' ? fetchError
+            : dataSource === 'empty' ? '目前沒有可讀取的影片資料；請檢查資料庫內容與公開讀取政策。'
+            : '已載入資料庫可讀取的影片；成員標籤為文字關聯，不保證實際同框。'}</p>
+          {!isLoading && (
+            <div className="flex gap-4">
+              <button onClick={fetchVideosFromSupabase} className="underline text-rose-700">重新讀取資料</button>
+              {dataSource !== 'demo' && <button onClick={showDemo} className="underline">檢視示範資料</button>}
+            </div>
+          )}
         </div>
 
         {/* Member Selector Component */}
@@ -200,7 +210,7 @@ export default function App() {
             onClick={() => handleSelectPreset(['Carmen', 'Jiwoo', 'Yuha', 'Stella', 'Juun', 'A-na', 'Ian', 'Ye-on'])}
             className="px-2.5 py-1 rounded-full bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 transition-colors cursor-pointer"
           >
-            全員 8 人同框
+            全員 8 人標籤
           </button>
           <button
             onClick={() => handleSelectPreset(['Carmen', 'Jiwoo'])}
@@ -234,6 +244,7 @@ export default function App() {
           <div className="flex items-center p-1 bg-slate-100/90 rounded-xl text-xs font-semibold w-full sm:w-auto">
             <button
               onClick={() => setFormatFilter('all')}
+              aria-pressed={formatFilter === 'all'}
               className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg transition-all cursor-pointer ${
                 formatFilter === 'all'
                   ? 'bg-white text-rose-600 shadow-xs'
@@ -251,6 +262,7 @@ export default function App() {
 
             <button
               onClick={() => setFormatFilter('video')}
+              aria-pressed={formatFilter === 'video'}
               className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg transition-all cursor-pointer ${
                 formatFilter === 'video'
                   ? 'bg-white text-rose-600 shadow-xs'
@@ -268,6 +280,7 @@ export default function App() {
 
             <button
               onClick={() => setFormatFilter('shorts')}
+              aria-pressed={formatFilter === 'shorts'}
               className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg transition-all cursor-pointer ${
                 formatFilter === 'shorts'
                   ? 'bg-white text-rose-600 shadow-xs'
@@ -287,9 +300,11 @@ export default function App() {
           {/* Keyword Search Input */}
           <div className="relative w-full sm:w-64">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <label htmlFor="video-search" className="sr-only">搜尋標題、頻道或描述</label>
             <input
-              type="text"
-              placeholder="搜尋標題或頻道..."
+              id="video-search"
+              type="search"
+              placeholder="搜尋標題、頻道或描述..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8.5 pr-3 py-2 text-xs rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-400"
@@ -298,7 +313,7 @@ export default function App() {
         </div>
 
         {/* 3. Video Results Section */}
-        <section className="space-y-6">
+        <section className="space-y-6" aria-busy={isLoading}>
           {/* Loading State */}
           {isLoading ? (
             <div className="py-20 px-6 text-center bg-white rounded-2xl border border-slate-200/80 shadow-2xs max-w-xl mx-auto">
@@ -322,7 +337,7 @@ export default function App() {
                 請先選擇一位或多位成員
               </h3>
               <p className="mt-2 text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-                點擊上方圓形頭像即可找出成員共同出現的 YouTube 完整影片與 Shorts 短片！例如同時點選 <strong>Carmen</strong> 與 <strong>Jiwoo</strong>，即可立即看到兩位成員同框出演的精彩舞台。
+                選擇一位或多位成員，搜尋包含所有所選成員標籤的影片。標籤可能來自文字推測，並非已核實的共同出演記錄。
               </p>
             </div>
           ) : (
@@ -332,17 +347,17 @@ export default function App() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
                 <div>
                   <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <span>同框搜尋結果</span>
+                    <span>標籤搜尋結果</span>
                     <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                       共 {filteredVideos.length} 部
                     </span>
                   </h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    必須同時出現：
+                    必須包含標籤：
                     <span className="font-semibold text-rose-700 ml-1">
                       {selectedMembers.join(' + ')}
                     </span>
-                    <span className="text-slate-400 ml-2 hidden sm:inline">（點擊卡片將於新分頁開啟 YouTube）</span>
+                    <span className="text-slate-400 ml-2 hidden sm:inline">{dataSource === 'demo' ? '（示範卡片不提供播放）' : '（點擊卡片將於新分頁開啟 YouTube）'}</span>
                   </p>
                 </div>
 
@@ -387,10 +402,10 @@ export default function App() {
                     <Film className="w-7 h-7 stroke-[1.5]" />
                   </div>
                   <h4 className="text-base sm:text-lg font-bold text-slate-800">
-                    暫時沒有找到符合的同框影片
+                    暫時沒有找到符合標籤的影片
                   </h4>
                   <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
-                    所選成員 <strong>{selectedMembers.join(' + ')}</strong> 在「{formatFilter === 'all' ? '全部' : formatFilter === 'video' ? '完整影片' : 'Shorts 短片'}」分類下尚未有同框記錄，請嘗試切換標籤或調整選取組合。
+                    所選成員 <strong>{selectedMembers.join(' + ')}</strong> 在「{formatFilter === 'all' ? '全部' : formatFilter === 'video' ? '完整影片' : 'Shorts 短片'}」分類下尚未有符合記錄，請嘗試切換分類、清除關鍵字或調整選取組合。
                   </p>
                   <div className="mt-4 flex items-center justify-center gap-2">
                     {formatFilter !== 'all' && (

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { VideoItem, MemberName } from '../types';
 import { ExternalLink, Play, Flame, Film, Users, Tv, Calendar } from 'lucide-react';
 
@@ -18,29 +18,39 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 }) => {
   const isShorts = video.type === 'shorts';
   const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  const Card = video.isSample ? 'article' : 'a';
 
   return (
-    <a
-      href={youtubeUrl}
-      target="_blank"
-      rel="noopener noreferrer"
+    <Card
+      href={video.isSample ? undefined : youtubeUrl}
+      target={video.isSample ? undefined : '_blank'}
+      rel={video.isSample ? undefined : 'noopener noreferrer'}
       className="group bg-white rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-400"
     >
       {/* 1. Thumbnail Container */}
       <div className="relative aspect-video w-full overflow-hidden bg-slate-100 shrink-0">
-      <img
-  src={video.thumbnail || video.thumbnailUrl || "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&auto=format&fit=crop"}
-  alt={video.title}
-  referrerPolicy="no-referrer"
-  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-  onError={(e) => {
-    (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&auto=format&fit=crop";
-  }}
-/>
+        {failedImage === video.thumbnailUrl ? (
+          <div role="img" aria-label="縮圖無法載入" className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400">
+            <Film className="w-12 h-12" />
+          </div>
+        ) : (
+          <img
+            src={video.thumbnailUrl}
+            alt={video.title}
+            width={480}
+            height={270}
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={() => setFailedImage(video.thumbnailUrl)}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        )}
         {/* Video Scrim & Hover Play Overlay */}
         <div className="absolute inset-0 bg-black/15 group-hover:bg-black/35 transition-colors flex items-center justify-center">
           <div className="w-11 h-11 rounded-full bg-white/95 group-hover:bg-rose-600 text-slate-900 group-hover:text-white flex items-center justify-center shadow-md transition-all duration-300 group-hover:scale-110">
-            <Play className="w-4 h-4 fill-current ml-0.5" />
+            {video.isSample ? <span className="text-xs">示範</span> : <Play className="w-4 h-4 fill-current ml-0.5" />}
           </div>
         </div>
 
@@ -83,7 +93,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             </span>
 
             <span className="inline-flex items-center gap-1 text-[11px] text-rose-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-              <span>在 YouTube 開啟</span>
+              <span>{video.isSample ? '示範資料・不提供播放' : '在 YouTube 開啟'}</span>
               <ExternalLink className="w-3 h-3" />
             </span>
           </div>
@@ -105,7 +115,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           <div>
             <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-2 font-medium">
               <Users className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-              <span>出現成員 ({video.members.length})：</span>
+              <span>成員標籤・未核實 ({video.members.length})：</span>
             </div>
 
             <div className="flex flex-wrap gap-1.5">
@@ -138,7 +148,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           <div className="pt-2 border-t border-slate-100/80 flex items-center justify-between text-xs text-slate-400">
             <div className="flex items-center gap-1.5 text-slate-500">
               <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              <span>發布日期：{video.publishedAt}</span>
+              <span>發布日期：{video.publishedAt || '未提供'}</span>
             </div>
             <span className="tabular-nums text-slate-400 text-[11px]">
               {video.views}
@@ -146,6 +156,6 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           </div>
         </div>
       </div>
-    </a>
+    </Card>
   );
 };

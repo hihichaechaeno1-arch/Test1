@@ -1,6 +1,6 @@
 {
   "name": "Hearts2Hearts (H2H) 粉絲精選影片庫",
-  "description": "Hearts2Hearts 成員介紹與 YouTube 影片、Shorts 組合多選篩選網站",
+  "description": "Hearts2Hearts 影片與 Shorts 成員標籤搜尋；標籤未經同框核實",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Heart, Play, Users, Sparkles } from 'lucide-react';
-import heroGroupImg from '../assets/images/hero_h2h_group_1790790752463.jpg';
+import heroGroupImg from '../assets/images/hero_h2h_group_1790790752463.webp';
 
 interface HeroSectionProps {
   onScrollToFilter: () => void;

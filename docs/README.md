@@ -1,0 +1,55 @@
+# Project documentation
+
+## Reading paths
+
+| Audience | Start here |
+| --- | --- |
+| User | [User guide](USER_GUIDE.md) |
+| Developer | [Setup](SETUP_CONFIGURATION.md) → [Architecture](ARCHITECTURE.md) → [Data model](DATA_MODEL.md) → [Testing](DEVELOPMENT_TESTING.md) |
+| Data maintainer | [Data model](DATA_MODEL.md) → [YouTube sync](YOUTUBE_SYNC.md) → [Operations](DEPLOYMENT_OPERATIONS.md) |
+| Release owner | [Remediation status](REMEDIATION.md) → [Operations](DEPLOYMENT_OPERATIONS.md) → [Content register](CONTENT_PROVENANCE.md) |
+
+## Document map
+
+- [Remediation status](REMEDIATION.md): issue-by-issue code fixes, verification, and remaining blockers.
+- [User guide](USER_GUIDE.md): active behavior and unverified-tag semantics.
+- [Architecture](ARCHITECTURE.md): runtime boundaries, file inventory, state, interfaces, and data flow.
+- [Setup/configuration](SETUP_CONFIGURATION.md): pinned tooling, public/private variables, database prerequisites.
+- [Data model](DATA_MODEL.md): legacy/canonical fields, validation, sample identity, and schema requirements.
+- [YouTube synchronization](YOUTUBE_SYNC.md): approved channels, discovery, refresh, limits, failures, and resume.
+- [Deployment/operations](DEPLOYMENT_OPERATIONS.md): security, rollout, incidents, backups, and rollback.
+- [Development/testing](DEVELOPMENT_TESTING.md): tests, checks, browser validation, and remaining coverage.
+- [Original project review](PROJECT_REVIEW.md): historical findings at baseline commit.
+- [Content/licensing register](CONTENT_PROVENANCE.md): known content origins and required owner evidence.
+
+## Evidence and boundaries
+
+The original review analyzed commit `d93b74b1035af155e08902877b8cc046c14649b9` on 2026-10-02. Source remediation was then applied locally in the documented issue order. **HEAD remains unchanged; nothing was committed or pushed.**
+
+Current implementation documents describe the modified working tree. The original review is historical, not a list of still-unfixed code defects. [Remediation status](REMEDIATION.md) is authoritative for issue progress.
+
+Validation includes local regression tests, type-checking/build, frozen Bun installation, a clean npm diagnostic installation, and mocked Chromium browser checks. No live Supabase schema, database policy, production data, deployment, GitHub variable/secret, or channel ownership was verified. No real YouTube import was executed.
+
+Classifications:
+
+- **Implemented locally:** source/configuration changed and tested within available boundaries.
+- **Partial:** code mitigations exist, but external constraints or broader coverage are still needed.
+- **Blocked on owner:** ownership, credentials, database inspection/migration, or product targets are required.
+
+## Terminology
+
+| Term | Current meaning |
+| --- | --- |
+| Member | One of eight canonical `MemberName` values. |
+| Member tag | Stored/inferred association, not verified on-screen presence. |
+| AND filter | Every selected tag must be included; additional tags are allowed. |
+| Format | `video` or `shorts`; separate from category. |
+| Demo | Sixteen illustrative fixtures, sorted newest-first and rendered without playback links. |
+| Recent scan | A quota-bounded newest-first YouTube search, not complete history coverage. |
+| Backfill | An explicit older date window, with bounded pages and manual token resume. |
+| Public client key | Publishable/legacy anon Supabase key protected by grants and RLS. |
+| Privileged key | Secret/legacy service-role key reserved for trusted importer execution. |
+
+## Maintenance
+
+Update docs whenever fields, variables, dependency tooling, schedule, UI behavior, or external requirements change. Maintain each issue's status and validation evidence. Do not describe a database or ownership requirement as resolved solely because local mocks pass.
