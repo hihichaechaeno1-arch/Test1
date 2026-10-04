@@ -25,7 +25,7 @@ For GitHub, use the three credential secrets and the channel-ID repository varia
 
 On the initial 2026-10-04 inspection, both repository variables were absent; all three secret names existed. Following the owner's explicit subsequent request, 13 channel IDs were verified from YouTube metadata, `YOUTUBE_CHANNEL_IDS` was set, and `ENABLE_YOUTUBE_SYNC=true` was applied and read back from GitHub. See [verified channels and live configuration](YOUTUBE_CHANNELS.md) and the historical [skip diagnosis](YOUTUBE_SYNC_DIAGNOSIS.md).
 
-No manual import or migration was performed. The database used by the deployed browser lacks `description`; if importer secrets target that same database, scheduled writes will fail until its schema is prepared. Enabling the variable does not establish schema/security readiness.
+The owner subsequently committed the prior repairs in `fecf14c` and manually ran the workflow. Run `37210961443` completed YouTube discovery but reported 847 insert and 3 update failures. The old logs omitted database error codes; the missing `description` column remains the leading diagnosis, not a conclusively decoded provider error. The subsequent local importer repair supports that optional column's absence and preserves sanitized codes for other failures. See [write-failure diagnosis](YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md). No migration or live import was performed by the agent.
 
 ## 3. Schedule and dependency installation
 
@@ -113,7 +113,7 @@ A unique-conflict response is treated as an already-inserted record only after a
 
 **Required external work:** inspect legacy duplicates and enforce stable YouTube-identity uniqueness in the real database. Workflow serialization only protects writers in this concurrency group; it does not replace a database constraint or protect against other applications.
 
-The table must have `description`, a valid ID default, and privileged UPDATE permission for source refresh. See [Data model](DATA_MODEL.md).
+The table must have the required legacy identity/metadata fields, a valid ID default, and privileged UPDATE permission for source refresh. `description` is optional for compatibility: a write rejected specifically for that absent column is retried once without it, and subsequent writes in the run omit it. The summary reports `metadataOmissions: ["description"]` and a `schema-compatibility` warning. Source description text still participates in filtering/tag inference, but is not stored when omitted. Other errors still fail. Add the column through a reviewed migration if persisted description/search is required. See [Data model](DATA_MODEL.md).
 
 ## 8. Errors, retries, and exit codes
 
@@ -121,10 +121,11 @@ The table must have `description`, a valid ID default, and privileged UPDATE per
 - HTTP requests have a 15-second timeout.
 - Network, 429, and 5xx failures get up to three attempts with short exponential delays.
 - Every attempt counts against the run-wide quota budget; retry loops cannot exceed it.
-- Lookup, insert, and update failures are reported as structured `database-failed` events; lookup failure never proceeds blindly to insert.
+- Lookup, insert, and update failures are reported as structured `database-failed` events with operation, standardized error code, and sanitized reason; lookup failure never proceeds blindly to insert.
+- Only a confirmed absent optional `description` column (`PGRST204` / `42703` with the exact recognized table/column message) permits one retry of a rejected write. Failed retries, permissions, required columns, constraints, and zero-row updates remain failures.
 - Configuration preflight reports all missing settings and absent approval before installing dependencies. Only a successful preflight allows the importer step to execute.
 - Logs omit credentials, request URLs, raw provider response messages, and private database details.
-- Summary contains `inserted`, `updated`, `skipped`, `failed`, `requests`, and channel completeness.
+- Summary contains `inserted`, `updated`, `skipped`, `failed`, `requests`, channel completeness, and `metadataOmissions`. `complete` describes search pagination, not database-write success.
 
 | Exit code | Meaning |
 | --- | --- |

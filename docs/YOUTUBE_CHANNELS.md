@@ -37,7 +37,7 @@ Repository: `hihichaechaeno1-arch/Test1`.
 - Both values were read back from the GitHub API and asserted to match the local manifest/enable value exactly. GitHub also confirmed the workflow state is `active`.
 - Existing secrets, cron schedule, permissions, and concurrency were unchanged. Neither a workflow dispatch nor a database operation was performed.
 
-The workflow already consumes these repository variables. The remote configuration update is effective immediately; it does not require committing the manifest. The old job-level approval condition will now evaluate true rather than skip. Earlier local preflight/frontend repairs remain uncommitted and unpushed; they are not assumed to be deployed.
+The workflow already consumes these repository variables. The remote configuration update is effective immediately; it does not require committing the manifest. The old job-level approval condition will now evaluate true rather than skip. The owner subsequently committed/pushed the earlier preflight/frontend repairs in `fecf14c` and ran the workflow. That run had 850 failed database writes. The newer optional-description compatibility/error-diagnostic repair remains local; see [write-failure diagnosis](YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md).
 
 To repeat the configuration intentionally after reviewing the manifest:
 
@@ -51,9 +51,9 @@ These commands alter live repository configuration; they are not a dry run.
 
 ## Known blockers and limits
 
-**Enabled is not the same as verified successful ingestion.** The prior [Vercel diagnosis](VERCEL_DATA_LOAD_DIAGNOSIS.md) established that the deployed browser's Supabase database lacks `description`. The importer writes that column, unlike the backward-compatible browser reader. If the importer secrets target that same database, writes will fail until an owner-reviewed schema change adds the required column. Importer secret values/database target were not inspected, and the broader schema, grants, ID default, uniqueness, and security readiness remain unverified. No migration was authorized by this configuration request.
+**Enabled is not the same as verified successful ingestion.** The prior [Vercel diagnosis](VERCEL_DATA_LOAD_DIAGNOSIS.md) established that the deployed browser's Supabase database lacks `description`. At activation, the importer unconditionally wrote that column and lacked the browser's compatibility behavior. The newer local importer repair recognizes a confirmed missing optional description column and retries without it, explicitly reporting the omission; other write failures still fail. See [write-failure diagnosis](YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md). Importer secret values/database target were not inspected, and the broader schema, grants, ID default, uniqueness, and security readiness remain unverified. No migration was authorized by this configuration request.
 
-The schedule remains 00:00/12:00 UTC (08:00/20:00 Hong Kong time); scheduled runs can now execute. Manual import was deliberately not triggered because of the known schema risk. Address database readiness before expecting successful writes, or explicitly disable the workflow while completing that work.
+The schedule remains 00:00/12:00 UTC (08:00/20:00 Hong Kong time); scheduled runs can now execute. Manual import was deliberately not triggered because of the known schema risk. Review/push the newer importer repair and address any remaining database readiness failures before expecting successful writes, or explicitly disable the workflow while completing that work.
 
 The default three-page/channel and 39-request/run budget is unchanged. With 13 channels, three requests each can use the entire budget; retries may leave later scans incomplete. Two scheduled runs can consume up to 78 attempts/day. This remains a bounded Hearts2Hearts search within approved channels, not an import of every video from those channels or a full-history guarantee.
 

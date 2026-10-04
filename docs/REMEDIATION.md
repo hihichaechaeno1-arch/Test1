@@ -1,12 +1,12 @@
 # Remediation status
 
-Changes are applied locally, **not committed or pushed**. The original findings remain as a historical baseline in [Project review](PROJECT_REVIEW.md).
+The owner committed/pushed the previous repairs in `fecf14c`. The newer [importer write-compatibility repair](YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md) remains local and uncommitted. The original findings remain as a historical baseline in [Project review](PROJECT_REVIEW.md).
 
 ## Issue-by-issue progress
 
 | Issue | Status | Applied solution / remaining requirement |
 | --- | --- | --- |
-| R1: playback/thumbnail contract | Implemented locally; live validation pending | Explicit adapter accepts importer `url`/`thumbnail` and canonical fields. Valid YouTube hosts/IDs are required. Importer now saves snippet description. Owner must verify/add the actual `description` column and staging round-trip. |
+| R1: playback/thumbnail contract | Implemented locally; live validation pending | Explicit adapter accepts importer `url`/`thumbnail` and canonical fields. Valid YouTube hosts/IDs are required. Importer saves snippet description when supported; the newer compatibility repair explicitly omits it after a confirmed missing-column rejection. Owner must verify required fields and the staging round-trip; add `description` through review if full retention is required. |
 | R2: type error / build gate | Resolved locally | Card reads declared `thumbnailUrl`. Build runs type-check first; quality workflow runs tests/build. |
 | R3: inaccurate appearance claims | Resolved for new ingestion/UI; legacy cleanup pending | Boundary-aware Unicode alias matching; unknown stays empty. UI calls these unverified tags, not proven co-appearances. Existing tags are not overwritten; owner must review historical all-eight defaults. |
 | R4: official source identity | Fail-closed code implemented; owner configuration pending | Removed guessed channel list/title matching. Importer requires `YOUTUBE_CHANNEL_IDS`; browser accepts an optional channel ID and does not label it officially verified. Owner must verify IDs. |
@@ -22,7 +22,7 @@ Changes are applied locally, **not committed or pushed**. The original findings 
 | R14: misleading metadata/dependencies | Resolved locally | Removed unused server/AI/animation packages and Gemini capability claim; active metadata describes tagged-video search. Dormant components retained intentionally and documented. Generic YouTube link no longer claims official status. |
 | R15: licensing/provenance/schema | Blocked on owner evidence | Added [content register](CONTENT_PROVENANCE.md), operational checklist, quality CI, and explicit import enable gate. No license text, channel ownership, live RLS, grants, uniqueness, or backup guarantee was invented. |
 
-## Current verification
+## Original remediation verification (historical)
 
 - 27 repository regression tests pass through mapper, archive reader, component rendering, and importer interfaces; external services are mocked. Test files are currently uncommitted like the rest of the work.
 - Type-check and production build pass.
@@ -34,7 +34,7 @@ Changes are applied locally, **not committed or pushed**. The original findings 
 
 ## Required next owner actions
 
-1. Inspect the actual `videos` schema, RLS/grants, ID default, duplicates, and uniqueness. The current importer requires `description` and metadata UPDATE permission; the frontend defaults to the legacy projection.
+1. Inspect the actual `videos` schema, RLS/grants, ID default, duplicates, and uniqueness. The current importer requires legacy identity/metadata fields and metadata UPDATE permission, and can explicitly omit an absent optional `description` column; the frontend defaults to the legacy projection.
 2. Reconcile legacy duplicates and implement a verified stable video identity constraint through a reviewed migration. Do not apply an invented schema over an unknown live table.
 3. Verify channel IDs, set GitHub variable `YOUTUBE_CHANNEL_IDS`, then set `ENABLE_YOUTUBE_SYNC=true` only after staging validation. Ingestion remains disabled by default.
 4. Audit/correct historical member tags; new boundary matching does not repair already stored tags automatically.

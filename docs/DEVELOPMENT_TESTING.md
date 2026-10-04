@@ -18,14 +18,14 @@ Use local/staging public configuration. Importing the importer module is safe; e
 
 ## 2. Regression suite and seams
 
-The existing tsx dependency loads TypeScript into Node's built-in test runner. No new test-framework dependency was needed. The current suite has **43 passing tests**, including nine workflow-preflight/manifest tests and seven new archive compatibility tests:
+The existing tsx dependency loads TypeScript into Node's built-in test runner. No new test-framework dependency was needed. The current suite has **51 passing tests**, including nine workflow-preflight/manifest tests, seven archive compatibility tests, and eight importer compatibility/diagnostic regressions:
 
 | File | Boundary covered |
 | --- | --- |
 | `tests/videoData.test.ts` | Legacy/canonical row identity/image preservation, normalization, stable unknowns, malformed data rejection. |
 | `tests/archive.test.ts` | External Data API paging, smaller server caps, empty archives, database errors, cancellation; real SDK HTTP-boundary tests for optional-description compatibility in both formats, retained descriptions, bounded retries, and fail-closed auth/schema/invalid-row behavior. |
 | `tests/components.test.tsx` | Public rendered markup: no demo playback links, valid live links/lazy images/unverified labels, member state/focus semantics. |
-| `tests/youtubeSync.test.ts` | Importer configuration/allowlist, conservative tags, wrong-channel rejection, observable failures, stable writes/refresh, bounds/retries/conflicts/backfill validation, and actual installed-SDK HTTP-boundary update behavior. |
+| `tests/youtubeSync.test.ts` | Importer configuration/allowlist, conservative tags, wrong-channel rejection, observable failures, stable writes/refresh, bounds/retries/conflicts/backfill validation, and actual installed-SDK HTTP-boundary writes, absent-description insert/update compatibility, metadata-omission reporting, bounded failed retries, required-column/permission/zero-row failures, and sanitized error codes. |
 
 | `tests/youtubeWorkflow.test.cjs` | Actual workflow preflight CLI, missing-variable reproduction, exact approval, complete missing-setting reports, safe logging, workflow ordering, and the verified thirteen-channel manifest's compatibility with importer/preflight configuration. |
 

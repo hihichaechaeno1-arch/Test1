@@ -154,6 +154,8 @@ Offset reads are deterministic by date/ID but not a transactional snapshot durin
 
 The CLI is guarded by `require.main`, so test imports have no execution side effects. It uses exact approved channel IDs, validates snippet identity/metadata, infers conservative tags, uses stable video URLs, refreshes source fields while preserving editorial tags, and aggregates failures.
 
+An absent optional description column permits one retry of a rejected insert/update without that field, then compatible payloads for the remainder of the run. A warning and summary `metadataOmissions` disclose the loss; standardized database error codes/reasons make other failures actionable without raw provider details. Permissions, required fields, constraints, and zero-row updates remain failures.
+
 HTTP calls have timeout/bounded retry; actual attempts consume a global request budget. Recent/backfill modes expose completeness and continuation tokens. There is no exhaustive search-history guarantee or persistent automatic checkpoint. A database constraint remains mandatory for race-safe identity.
 
 ## 8. Dormant components

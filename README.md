@@ -64,4 +64,4 @@ Start at [docs/README.md](docs/README.md). For the hosted archive-load error and
 
 The active page has member controls, five presets, format tabs, keyword search, video cards, and a footer. Multi-tab navigation, member profiles, recommendation panels, and embedded playback components are retained but not mounted. No server, authentication, admin UI, or Gemini feature is implemented.
 
-This is an unofficial fan project. Existing SPDX headers do not establish asset rights or independently verify biographies. A root license must be confirmed by the owner rather than guessed. **Changes remain uncommitted and unpushed.**
+This is an unofficial fan project. Existing SPDX headers do not establish asset rights or independently verify biographies. A root license must be confirmed by the owner rather than guessed. The owner committed/pushed the prior repairs in `fecf14c`. The newer [importer write-compatibility repair](docs/YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md) remains local and uncommitted.

@@ -97,7 +97,7 @@ To stop the workflow completely without recurring configuration failures, disabl
 
 See [skip diagnosis](YOUTUBE_SYNC_DIAGNOSIS.md) for the verified timeline and regression coverage.
 
-**Subsequent owner-requested configuration, 2026-10-04:** all 13 supplied channel URLs were resolved to verified IDs, and both repository variables were applied to GitHub (`ENABLE_YOUTUBE_SYNC=true`) and read back successfully. See [channel register](YOUTUBE_CHANNELS.md). This configuration is live; the local source repairs are still uncommitted/unpushed. No manual import or migration was performed. The known missing `description` column remains an importer blocker if the importer uses the same database as the deployed frontend.
+**Subsequent owner-requested configuration, 2026-10-04:** all 13 supplied channel URLs were resolved to verified IDs, and both repository variables were applied to GitHub (`ENABLE_YOUTUBE_SYNC=true`) and read back successfully. See [channel register](YOUTUBE_CHANNELS.md). This configuration is live. The owner subsequently committed/pushed the earlier source repairs in `fecf14c` and manually ran ingestion; it reported 850 write failures. The newer local importer compatibility/error-diagnostic repair is not yet pushed. It permits writes without the optional `description` column, while exposing other failures through sanitized codes. No manual import or migration was performed by the agent. See [write-failure diagnosis](YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md).
 
 ## 5. Database prerequisites — owner inspection required
 
@@ -106,13 +106,15 @@ There is still no verified migration for the unknown live schema. Use [Data mode
 Before enabling ingestion:
 
 1. Inspect `videos`, ID defaults, types, existing rows/duplicates, triggers, grants, and RLS.
-2. Confirm the legacy importer fields and **`description`** column. The script now refreshes source metadata through UPDATE as well as INSERT. Browser reads are backward-compatible with an absent `description` column, but importer writes still require it; frontend compatibility is not permission to enable ingestion against an unprepared schema.
+2. Confirm the required legacy importer fields. The script refreshes source metadata through UPDATE as well as INSERT. Both browser reads and the newer importer repair are backward-compatible with a specifically confirmed absent optional `description` column. Add `description` through a reviewed migration if persisted snippet/search text is required. Compatibility does not verify ID defaults, required fields, constraints, or permissions.
 3. Verify public SELECT grants/policies for the intended archive metadata; deny anonymous writes.
 4. Verify privileged SELECT/INSERT/UPDATE access.
 5. Reconcile legacy Shorts/watch duplicates and establish stable YouTube-identity uniqueness. Application pre-checks and workflow serialization cannot replace a database constraint.
 6. Test one staging import through the selected frontend projection and card link.
 7. Review historical all-eight member defaults; they are not overwritten automatically.
 8. Version the actual schema/security configuration after inspection rather than inventing a migration over an unknown database.
+
+The owner explicitly requested the known missing `description` column. A guarded nullable-text migration is prepared and tested locally; production application is blocked on correct project-admin access/connectivity. See [description-column migration](VIDEOS_DESCRIPTION_MIGRATION.md). Adding this column addresses missing-column errors, not unverified defaults/constraints/permissions.
 
 ## 6. Validation/build
 

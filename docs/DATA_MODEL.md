@@ -106,13 +106,15 @@ New records use legacy fields:
 
 Both formats use the stable watch URL. Lookup recognizes canonical watch and legacy Shorts URLs for the same ID. Existing rows are refreshed with title, URL normalization, thumbnail, channel, format, date, and description; **existing member tags are not overwritten**. `id` is omitted on inserts and must have a verified database default.
 
-Description is the search snippet's description, not a promise of complete video metadata. Format remains title-token inferred; duration, view counts, deletions, and availability are not synchronized.
+Description is the search snippet's description, not a promise of complete video metadata. If the database rejects a write specifically because `videos.description` is absent, the importer retries the rejected operation once without that optional field and uses compatible payloads thereafter. It emits a warning and records `metadataOmissions: ["description"]`; text-based filtering/tag inference still uses the source description. Available descriptions are stored normally. Required-column/permission/constraint errors and zero-row updates still fail, with sanitized error codes. No schema or permission changes occur automatically. Format remains title-token inferred; duration, view counts, deletions, and availability are not synchronized.
 
-## 7. Required database properties — not an applied migration
+## 7. Required database properties
+
+An owner-requested, additive [description-column migration](VIDEOS_DESCRIPTION_MIGRATION.md) now exists and has been tested against isolated PostgreSQL 16 fixtures. It has **not** been applied to production: authorized target-project access/connectivity is unavailable. This is not a full schema migration or a replacement for the checks below.
 
 - An exposed `videos` table matching the selected public projection.
 - Stable primary key/default ID for new rows.
-- `description` compatible with importer inserts/updates.
+- Optional `description` compatible with inserts/updates when full snippet retention is required; absent-column compatibility preserves other metadata but cannot store descriptions.
 - Correct title/channel/format/date/member types.
 - Public SELECT grants and appropriate RLS; no anonymous writes.
 - Privileged SELECT/INSERT/UPDATE grants for the trusted importer.

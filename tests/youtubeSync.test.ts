@@ -94,6 +94,7 @@ test('new Shorts use canonical identity and retain description and inferred tags
   assert.equal(db.records[0].type, 'shorts');
   assert.equal(db.records[0].description, 'Jiwoo rehearsal');
   assert.deepEqual(db.records[0].members, ['Carmen', 'Jiwoo']);
+  assert.deepEqual(result.metadataOmissions, []);
 });
 
 test('source refresh preserves existing editorial member tags', async () => {
@@ -152,6 +153,146 @@ test('source refresh works through the installed Supabase SDK HTTP boundary', as
   assert.equal(result.failed, 0);
   assert.equal(stored.url, 'https://www.youtube.com/watch?v=abcdefghijk');
   assert.deepEqual(stored.members, ['Ye-on']);
+});
+
+function legacySdkDatabase({ existing = false, fallbackError = null, missingColumn = 'description',
+  missingCode = 'PGRST204', affectedCount = 1 }: any = {}) {
+  const { createClient } = require('@supabase/supabase-js');
+  const writes: any[] = [];
+  const client = createClient('https://fixture.supabase.co', 'sb_publishable_fixture', {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: async (_url: string, init: RequestInit) => {
+      if (init.method === 'POST' || init.method === 'PATCH') {
+        const payload = JSON.parse(String(init.body));
+        writes.push({ method: init.method, payload });
+        if (missingColumn in payload) {
+          const message = missingCode === 'PGRST204'
+            ? `Could not find the '${missingColumn}' column of 'videos' in the schema cache`
+            : `column "${missingColumn}" of relation "videos" does not exist`;
+          return Response.json({ code: missingCode, message }, { status: 400 });
+        }
+        if (fallbackError) return Response.json(fallbackError, { status: 403 });
+        return new Response(null, { status: init.method === 'POST' ? 201 : 204,
+          headers: { 'content-range': `*/${affectedCount}` } });
+      }
+      const found = typeof existing === 'function' ? existing(new URL(_url)) : existing;
+      return Response.json(found ? [{ id: 'legacy-row', members: ['Ye-on'] }] : []);
+    } },
+  });
+  return { client, writes };
+}
+
+for (const existing of [false, true]) {
+  test(`legacy ${existing ? 'updates' : 'inserts'} retry only the absent optional description column`, async () => {
+    const db = legacySdkDatabase({ existing, missingCode: existing ? '42703' : 'PGRST204' });
+    const logs: any[] = [];
+    const second = { ...item(), id: { videoId: 'bcdefghijkl' } };
+    const result = await syncVideos({ ...loadConfig(env), client: db.client,
+      fetchImpl: async () => ({ ok: true, json: async () => ({ items: [item(), second] }) }),
+      log: (entry: unknown) => logs.push(entry),
+    });
+    assert.equal(result.failed, 0);
+    assert.equal(result[existing ? 'updated' : 'inserted'], 2);
+    assert.deepEqual(result.metadataOmissions, ['description']);
+    assert.equal(db.writes.length, 3, 'one failed schema write, one retry, then one compatible write');
+    assert.equal(db.writes[0].payload.description, 'Jiwoo rehearsal');
+    for (const write of db.writes.slice(1)) {
+      assert.ok(!('description' in write.payload));
+      assert.ok(write.payload.url.startsWith('https://www.youtube.com/watch?v='));
+      assert.equal(write.payload.title, item().snippet.title);
+      if (existing) assert.ok(!('members' in write.payload), 'preserve editorial tags');
+      else assert.deepEqual(write.payload.members, ['Carmen', 'Jiwoo'], 'still infer using source description');
+    }
+    assert.equal(logs.filter(entry => entry.event === 'schema-compatibility').length, 1);
+    assert.ok(!JSON.stringify(logs).includes('schema cache'), 'never log raw database messages');
+  });
+}
+
+test('legacy description retry failure remains a failure with sanitized error-code diagnostics', async () => {
+  const db = legacySdkDatabase({ fallbackError: { code: '42501', message: 'private permission detail' } });
+  const logs: any[] = [];
+  const result = await syncVideos({ ...loadConfig(env), client: db.client,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ items: [item()] }) }),
+    log: (entry: unknown) => logs.push(entry),
+  });
+  assert.equal(result.failed, 1);
+  assert.equal(result.inserted, 0);
+  assert.equal(db.writes.length, 2);
+  assert.equal(logs.find(entry => entry.event === 'database-failed')?.code, '42501');
+  assert.ok(!JSON.stringify(logs).includes('private permission detail'));
+});
+
+test('missing required write columns never trigger an optional-description retry', async () => {
+  const db = legacySdkDatabase({ missingColumn: 'title' });
+  const result = await syncVideos({ ...loadConfig(env), client: db.client,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ items: [item()] }) }), log: () => {},
+  });
+  assert.equal(result.failed, 1);
+  assert.equal(result.inserted, 0);
+  assert.equal(db.writes.length, 1);
+});
+
+test('permission errors mentioning description are not mistaken for a missing column', async () => {
+  const db = fakeDatabase({ writeError: { code: '42501', message: 'column "description" of relation "videos" does not exist' } });
+  const result = await syncVideos({ ...loadConfig(env), client: db.client,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ items: [item()] }) }), log: () => {},
+  });
+  assert.equal(result.failed, 1);
+  assert.equal(db.records.length, 1);
+});
+
+test('a compatible update affecting zero rows cannot report success', async () => {
+  const db = legacySdkDatabase({ existing: true, affectedCount: 0 });
+  const result = await syncVideos({ ...loadConfig(env), client: db.client,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ items: [item()] }) }), log: () => {},
+  });
+  assert.equal(result.failed, 1);
+  assert.equal(result.updated, 0);
+  assert.equal(db.writes.length, 2);
+});
+
+test('unrecognized database error codes and messages never leak into logs', async () => {
+  const db = fakeDatabase({ lookupError: { code: 'private-credential-fixture', message: 'private detail' } });
+  const logs: any[] = [];
+  const result = await syncVideos({ ...loadConfig(env), client: db.client,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ items: [item()] }) }),
+    log: (entry: unknown) => logs.push(entry),
+  });
+  assert.equal(result.failed, 1);
+  assert.equal(logs.find(entry => entry.event === 'database-failed')?.code, 'unknown');
+  assert.ok(!JSON.stringify(logs).includes('private'));
+  assert.deepEqual(db.records, []);
+});
+
+test('the 850-write/305-skip incident pattern succeeds through bounded paginated legacy ingestion', async () => {
+  const accepted = Array.from({ length: 850 }, (_, index) => ({
+    ...item(), id: { videoId: String(index).padStart(11, '0') },
+  }));
+  const existingIds = accepted.slice(0, 3).map(video => video.id.videoId);
+  const db = legacySdkDatabase({ existing: (url: URL) =>
+    existingIds.some(id => url.searchParams.get('url')?.includes(id)) });
+  const rejected = Array.from({ length: 305 }, () => ({
+    ...item('Unrelated archive clip'), snippet: { ...item('Unrelated archive clip').snippet, description: '' },
+  }));
+  const allItems = [...accepted, ...rejected];
+  const logs: any[] = [];
+  const result = await syncVideos({ ...loadConfig(env), client: db.client, maxPages: 24,
+    fetchImpl: async (input: string) => {
+      const offset = Number(new URL(input).searchParams.get('pageToken') || 0);
+      return { ok: true, json: async () => ({ items: allItems.slice(offset, offset + 50),
+        ...(offset + 50 < allItems.length ? { nextPageToken: String(offset + 50) } : {}),
+      }) };
+    }, log: (entry: unknown) => logs.push(entry),
+  });
+  assert.equal(result.inserted, 847);
+  assert.equal(result.updated, 3);
+  assert.equal(result.skipped, 305);
+  assert.equal(result.failed, 0);
+  assert.equal(result.requests, 24);
+  assert.equal(result.channels[0].complete, true);
+  assert.equal(db.writes.length, 851, '850 successful writes plus one rejected optional-column statement');
+  assert.deepEqual(result.metadataOmissions, ['description']);
+  assert.equal(logs.filter(entry => entry.event === 'schema-compatibility').length, 1);
 });
 
 test('backfill requires an explicit date window and a single channel for token resume', () => {

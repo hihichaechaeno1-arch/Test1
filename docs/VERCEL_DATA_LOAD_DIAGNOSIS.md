@@ -41,7 +41,7 @@ This is separate from the missing GitHub ingestion variables: stopped ingestion 
 - Retry is bounded to once and allowed only before any rows have loaded.
 - Auth/permission/network failures, missing required columns, malformed rows, and mid-read schema changes still reject the archive. No `select('*')`, format guessing, partial success, or automatic demo substitution was added.
 
-No live schema change is needed to restore reads. **Importer writes still require `description`**, so this compatibility repair must not be mistaken for database approval to enable ingestion. Add the column only through an owner-reviewed schema change after inspecting the actual database contract.
+No live schema change is needed to restore reads. At the time of this diagnosis, importer writes still required `description`. The subsequent [importer repair](YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md) adds explicit optional-description write compatibility; neither repair establishes database security/default/constraint readiness. Add the column only through an owner-reviewed schema change after inspecting the actual database contract.
 
 ## Regression and validation
 

@@ -20,6 +20,8 @@
 - [YouTube workflow skip diagnosis](YOUTUBE_SYNC_DIAGNOSIS.md): verified GitHub run history, missing-variable root cause, preflight repair, and activation requirements.
 - [Vercel data-load diagnosis](VERCEL_DATA_LOAD_DIAGNOSIS.md): confirmed missing-description schema mismatch, backward-compatible reads, live read-only evidence, and redeployment requirements.
 - [Verified YouTube channels](YOUTUBE_CHANNELS.md): first-party verification of all 13 owner-supplied URLs, live GitHub variable updates, and outstanding importer/schema risks.
+- [YouTube write-failure diagnosis](YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md): run `37210961443`, 850 failed writes, optional-description compatibility, and sanitized database diagnostics.
+- [Description-column migration](VIDEOS_DESCRIPTION_MIGRATION.md): owner-requested nullable text column, tested standalone migration, production-access blocker, and verification steps.
 - [Deployment/operations](DEPLOYMENT_OPERATIONS.md): security, rollout, incidents, backups, and rollback.
 - [Development/testing](DEVELOPMENT_TESTING.md): tests, checks, browser validation, and remaining coverage.
 - [Original project review](PROJECT_REVIEW.md): historical findings at baseline commit.
@@ -27,7 +29,7 @@
 
 ## Evidence and boundaries
 
-The original review analyzed commit `d93b74b1035af155e08902877b8cc046c14649b9` on 2026-10-02. Source remediation was then applied locally in the documented issue order. **HEAD remains unchanged; nothing was committed or pushed.**
+The original review analyzed commit `d93b74b1035af155e08902877b8cc046c14649b9` on 2026-10-02. Source remediation was then applied in the documented issue order. The owner subsequently committed/pushed the prior repairs in `fecf14c` and ran the workflow. The newest importer compatibility/error-diagnostic repair remains local; see [write-failure diagnosis](YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md).
 
 Current implementation documents describe the modified working tree. The original review is historical, not a list of still-unfixed code defects. [Remediation status](REMEDIATION.md) is authoritative for issue progress.
 

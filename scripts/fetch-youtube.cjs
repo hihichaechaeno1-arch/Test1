@@ -80,13 +80,48 @@ async function searchPage(url, fetchImpl, sleep) {
   }
 }
 
+function isMissingDescription(error) {
+  if (error?.code === 'PGRST204') {
+    return /^Could not find the 'description' column of 'videos' in the schema cache$/i.test(error.message);
+  }
+  return error?.code === '42703' &&
+    /^(?:column (?:"?videos"?\.)?"?description"? does not exist|column "?description"? of relation "?videos"? does not exist)$/i.test(error.message);
+}
+
+function databaseDiagnostic(error) {
+  // Keep standardized error codes, never raw messages, row values, or SDK URLs.
+  const code = typeof error?.code === 'string' && /^(?:[0-9A-Z]{5}|PGRST\d{3})$/.test(error.code)
+    ? error.code : 'unknown';
+  const reasons = {
+    PGRST204: 'schema-column-missing', '42703': 'schema-column-missing',
+    '42501': 'permission-denied', PGRST301: 'authentication-failed',
+    '23502': 'required-value-missing', '23505': 'unique-conflict',
+    '23514': 'check-constraint', '22P02': 'invalid-value',
+  };
+  return { code, reason: reasons[code] || 'database-operation-failed' };
+}
+
 /** Public ingestion boundary; mocks are limited to the external HTTP/database services. */
 async function syncVideos({
   apiKey, channelIds, client, maxPages = 3, maxRequests = 39, mode = 'recent',
   publishedAfter, publishedBefore, pageToken = '', fetchImpl = fetch,
   sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), log = console.log,
 }) {
-  const summary = { mode, inserted: 0, updated: 0, skipped: 0, failed: 0, requests: 0, channels: [] };
+  const summary = { mode, inserted: 0, updated: 0, skipped: 0, failed: 0, requests: 0, channels: [], metadataOmissions: [] };
+  let includeDescription = true;
+  const writeMetadata = async (record, write) => {
+    const { description, ...required } = record;
+    let result = await write(includeDescription ? record : required);
+    // A rejected missing-column statement made no write. Retry only that known
+    // optional field; never retry permissions, required columns, or constraints.
+    if (includeDescription && isMissingDescription(result.error)) {
+      includeDescription = false;
+      summary.metadataOmissions.push('description');
+      log({ event: 'schema-compatibility', omittedColumn: 'description', reason: 'missing-optional-column' });
+      result = await write(required);
+    }
+    return result;
+  };
   // Each retry consumes quota too; enforce the global bound at the actual HTTP boundary.
   const boundedFetch = async (...args) => {
     if (summary.requests >= maxRequests) throw new Error('Search request budget exhausted');
@@ -151,27 +186,31 @@ async function syncVideos({
         try {
           const { data: existing, error: lookupError } = await client.from('videos')
             .select('id').in('url', [videoUrl, `https://www.youtube.com/shorts/${id}`]).maybeSingle();
-          if (lookupError) throw new Error('Database lookup failed');
+          if (lookupError) throw lookupError;
           if (existing) {
             // Preserve editorial member tags. Only source metadata is refreshed.
             operation = 'update';
-            const { error, count } = await client.from('videos').update({ ...metadata, url: videoUrl }, { count: 'exact' }).eq('id', existing.id);
-            if (error || count !== 1) throw new Error('Database update failed or affected no row');
+            const { error, count } = await writeMetadata({ ...metadata, url: videoUrl }, record =>
+              client.from('videos').update(record, { count: 'exact' }).eq('id', existing.id));
+            if (error) throw error;
+            if (count !== 1) throw new Error('Database update affected no row');
             summary.updated++;
           } else {
             operation = 'insert';
-            const { error } = await client.from('videos').insert({ ...metadata, url: videoUrl, members });
+            const { error } = await writeMetadata({ ...metadata, url: videoUrl, members }, record =>
+              client.from('videos').insert(record));
             if (error) {
               if (error.code === '23505') {
                 const { data: winner, error: retryError } = await client.from('videos').select('id').eq('url', videoUrl).maybeSingle();
-                if (retryError || !winner) throw new Error('Unconfirmed duplicate conflict');
+                if (retryError) throw retryError;
+                if (!winner) throw error;
                 summary.skipped++;
-              } else throw new Error('Database insert failed');
+              } else throw error;
             } else summary.inserted++;
           }
-        } catch {
+        } catch (error) {
           summary.failed++;
-          log({ event: 'database-failed', channelId, videoId: id, operation });
+          log({ event: 'database-failed', channelId, videoId: id, operation, ...databaseDiagnostic(error) });
         }
       }
       result.nextPageToken = typeof data.nextPageToken === 'string' ? data.nextPageToken : '';
