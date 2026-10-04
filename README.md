@@ -43,11 +43,11 @@ Local tests, type-checking, and build pass. See [remediation status](docs/REMEDI
 
 **Do not enable production ingestion yet without inspecting the actual database.** The table must support the documented fields (including `description`), privileged metadata updates, public read policies, stable IDs, and reviewed duplicate/uniqueness protection. Channel identities and content rights remain owner-verification tasks. No live migration or import was executed.
 
-GitHub ingestion is gated by `ENABLE_YOUTUBE_SYNC=true` and an explicit `YOUTUBE_CHANNEL_IDS` variable. See [setup](docs/SETUP_CONFIGURATION.md) and [sync operations](docs/YOUTUBE_SYNC.md).
+GitHub ingestion requires `ENABLE_YOUTUBE_SYNC=true` and an explicit `YOUTUBE_CHANNEL_IDS` repository variable. Scheduled/manual jobs run a configuration-only preflight; missing approval/settings fail with actionable errors instead of silently skipping the job. See [setup](docs/SETUP_CONFIGURATION.md), [sync operations](docs/YOUTUBE_SYNC.md), and the [skip diagnosis](docs/YOUTUBE_SYNC_DIAGNOSIS.md).
 
 ## Documentation
 
-Start at [docs/README.md](docs/README.md).
+Start at [docs/README.md](docs/README.md). For the hosted archive-load error and optional-column compatibility repair, see [Vercel data-load diagnosis](docs/VERCEL_DATA_LOAD_DIAGNOSIS.md).
 
 - [Remediation status](docs/REMEDIATION.md)
 - [User guide](docs/USER_GUIDE.md)

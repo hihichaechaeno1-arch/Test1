@@ -146,7 +146,7 @@ sequenceDiagram
   App->>App: Derive results locally
 ```
 
-A 30-second signal bounds a full archive read. Previous/unmounted requests abort and cannot overwrite newer state. There is no unordered fallback query, Realtime subscription, polling, or automatic sync-freshness clock.
+A 30-second signal bounds a full archive read. Previous/unmounted requests abort and cannot overwrite newer state. An initial PostgreSQL `42703` naming only the missing optional `description` column permits one ordered retry without that column; subsequent pages retain the reduced explicit projection. Other failures and mid-read schema changes reject the archive. There is no unordered fallback query, Realtime subscription, polling, or automatic sync-freshness clock.
 
 Offset reads are deterministic by date/ID but not a transactional snapshot during concurrent changes. Data API errors are surfaced, not disguised as demo.
 

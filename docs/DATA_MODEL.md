@@ -8,7 +8,7 @@
 - [`src/data/h2hData.ts`](../src/data/h2hData.ts): member data and demo fixtures.
 - [`scripts/fetch-youtube.cjs`](../scripts/fetch-youtube.cjs): discovery/write contract.
 
-The live database was not inspected. No schema, RLS, default, trigger, uniqueness constraint, or generated column is asserted to exist merely because the application expects it.
+The original remediation did not inspect the live database. On 2026-10-04, read-only requests using the deployed browser's public anon key confirmed seven valid legacy rows and an absent `description` column; see [Vercel load diagnosis](VERCEL_DATA_LOAD_DIAGNOSIS.md). This is not a full schema/security audit. Defaults, triggers, write permissions, RLS configuration, uniqueness, and generated columns remain unverified.
 
 ## 2. Member contract
 
@@ -79,7 +79,9 @@ The frontend never selects `*`.
 | `legacy` (default) | `id,title,url,thumbnail,channel,type,published_at,members,description` |
 | `canonical` | `id,title,youtube_id,thumbnail_url,channel,type,published_at,members,description` |
 
-Set `NEXT_PUBLIC_VIDEO_ROW_FORMAT` deliberately to match the actual table. Missing columns cause a visible error, not a silent retry against a different schema. Optional duration/views/category/highlights are supported by the mapper but not requested by these minimal public projections; extend the allowlist explicitly after verifying actual public schema requirements.
+Set `NEXT_PUBLIC_VIDEO_ROW_FORMAT` deliberately to match the actual table. `description` is optional for browser reads: if the initial query returns PostgreSQL `42703` specifically identifying that missing column, the reader retries once with only `description` removed and uses that same reduced projection for subsequent pages. The mapper represents absent descriptions as blank; other valid metadata, live playback, and filtering remain available. The reader does not switch legacy/canonical formats automatically.
+
+Missing required columns, auth/permission errors, unrecognized failures, malformed rows, and schema changes after rows have already loaded still cause a visible error. The fallback never selects `*` or substitutes demo data. Optional duration/views/category/highlights are supported by the mapper but not requested by these minimal public projections; extend the allowlist explicitly after verifying actual public schema requirements.
 
 `fetchArchiveVideos` requests 100-row ranges with exact count, orders by publication date descending and ID ascending, advances by **actual returned length**, and continues until the count/end is reached. A server cap below 100 therefore does not hide later records. When count is absent, it continues to an empty page. Errors reject partial results. Cancellation and a 30-second default timeout are supported.
 

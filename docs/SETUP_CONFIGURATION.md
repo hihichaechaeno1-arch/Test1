@@ -75,7 +75,7 @@ Missing settings or an absent allowlist fail closed. No guessed channel IDs or c
 Two workflows exist:
 
 - `quality.yml`: on push/PR/manual trigger, frozen install → tests → type-gated production build. No credentials required.
-- `auto-update.yml`: scheduled at 00:00/12:00 UTC and manually triggerable, but the job is disabled unless `ENABLE_YOUTUBE_SYNC` equals `true`.
+- `auto-update.yml`: scheduled at 00:00/12:00 UTC and manually triggerable. The job always runs a configuration-only preflight. Missing approval/settings fail visibly with error annotations and a run summary, before dependency installation or ingestion. `ENABLE_YOUTUBE_SYNC` must equal exactly `true`; manual triggers do not bypass approval.
 
 Configure privately:
 
@@ -89,7 +89,15 @@ Configure privately:
 
 The importer workflow serializes writers, grants only `contents: read` to the workflow token, and has a 20-minute timeout. Both workflows use the locally tested Node 24.18.0 and Bun 1.4.2. Action versions are pinned to major tags, not immutable SHAs; a later supply-chain hardening pass may pin audited revisions.
 
-No remote variable, secret, workflow execution, or schedule was changed during remediation.
+No remote variable, secret, workflow execution, or schedule was changed during remediation or the skip diagnosis. On 2026-10-04, read-only GitHub inspection confirmed that all three secret names exist but neither required repository variable exists. Secret values and database readiness were not inspected.
+
+After completing the database/channel approval checklist below, open **Settings → Secrets and variables → Actions → Variables**. Set `YOUTUBE_CHANNEL_IDS` to the verified comma-separated IDs, then set `ENABLE_YOUTUBE_SYNC` to exactly `true`. These must be repository variables: secrets with the same names do not populate `vars.*`. Commit/push the workflow repair to the default branch and run **Actions → Auto Update YouTube Videos → Run workflow**. Check preflight and the import summary; a passed preflight only proves configuration presence/syntax.
+
+To stop the workflow completely without recurring configuration failures, disable it in GitHub Actions. Setting `ENABLE_YOUTUBE_SYNC=false` also prevents writes, but reports a blocked configuration on each trigger.
+
+See [skip diagnosis](YOUTUBE_SYNC_DIAGNOSIS.md) for the verified timeline and regression coverage.
+
+**Subsequent owner-requested configuration, 2026-10-04:** all 13 supplied channel URLs were resolved to verified IDs, and both repository variables were applied to GitHub (`ENABLE_YOUTUBE_SYNC=true`) and read back successfully. See [channel register](YOUTUBE_CHANNELS.md). This configuration is live; the local source repairs are still uncommitted/unpushed. No manual import or migration was performed. The known missing `description` column remains an importer blocker if the importer uses the same database as the deployed frontend.
 
 ## 5. Database prerequisites — owner inspection required
 
@@ -98,7 +106,7 @@ There is still no verified migration for the unknown live schema. Use [Data mode
 Before enabling ingestion:
 
 1. Inspect `videos`, ID defaults, types, existing rows/duplicates, triggers, grants, and RLS.
-2. Confirm the legacy importer fields and **`description`** column. The script now refreshes source metadata through UPDATE as well as INSERT.
+2. Confirm the legacy importer fields and **`description`** column. The script now refreshes source metadata through UPDATE as well as INSERT. Browser reads are backward-compatible with an absent `description` column, but importer writes still require it; frontend compatibility is not permission to enable ingestion against an unprepared schema.
 3. Verify public SELECT grants/policies for the intended archive metadata; deny anonymous writes.
 4. Verify privileged SELECT/INSERT/UPDATE access.
 5. Reconcile legacy Shorts/watch duplicates and establish stable YouTube-identity uniqueness. Application pre-checks and workflow serialization cannot replace a database constraint.

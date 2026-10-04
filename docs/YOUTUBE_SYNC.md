@@ -21,7 +21,11 @@ YOUTUBE_CHANNEL_IDS
 
 Every search specifies an approved `channelId`. Every accepted snippet must return that exact ID. A same-name unapproved channel cannot pass the identity check.
 
-For GitHub, use the three credential secrets and the channel-ID repository variable. Set `ENABLE_YOUTUBE_SYNC=true` only after staging/database verification. The workflow otherwise skips ingestion. No remote settings were changed.
+For GitHub, use the three credential secrets and the channel-ID repository variable. Set `ENABLE_YOUTUBE_SYNC=true` only after staging/database verification. Every scheduled/manual job now executes [`scripts/check-youtube-sync.cjs`](../scripts/check-youtube-sync.cjs) before dependency installation. This dependency-free preflight reuses `loadConfig`, checks explicit approval, and reports missing/invalid settings through error annotations and `GITHUB_STEP_SUMMARY`, without revealing values or contacting YouTube/Supabase. Blocked configuration exits 1 and prevents ingestion; it no longer silently skips the entire job. Manual triggers do not override approval.
+
+On the initial 2026-10-04 inspection, both repository variables were absent; all three secret names existed. Following the owner's explicit subsequent request, 13 channel IDs were verified from YouTube metadata, `YOUTUBE_CHANNEL_IDS` was set, and `ENABLE_YOUTUBE_SYNC=true` was applied and read back from GitHub. See [verified channels and live configuration](YOUTUBE_CHANNELS.md) and the historical [skip diagnosis](YOUTUBE_SYNC_DIAGNOSIS.md).
+
+No manual import or migration was performed. The database used by the deployed browser lacks `description`; if importer secrets target that same database, scheduled writes will fail until its schema is prepared. Enabling the variable does not establish schema/security readiness.
 
 ## 3. Schedule and dependency installation
 
@@ -118,6 +122,7 @@ The table must have `description`, a valid ID default, and privileged UPDATE per
 - Network, 429, and 5xx failures get up to three attempts with short exponential delays.
 - Every attempt counts against the run-wide quota budget; retry loops cannot exceed it.
 - Lookup, insert, and update failures are reported as structured `database-failed` events; lookup failure never proceeds blindly to insert.
+- Configuration preflight reports all missing settings and absent approval before installing dependencies. Only a successful preflight allows the importer step to execute.
 - Logs omit credentials, request URLs, raw provider response messages, and private database details.
 - Summary contains `inserted`, `updated`, `skipped`, `failed`, `requests`, and channel completeness.
 

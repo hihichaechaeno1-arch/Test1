@@ -1,0 +1,19 @@
+{
+  "verifiedAt": "2026-10-04T14:38:28.860Z",
+  "verificationMethod": "YouTube channelMetadataRenderer externalId, canonical URL, and supplied handle/channel URL agreement",
+  "channels": [
+    { "name": "Hearts2Hearts", "url": "https://www.youtube.com/@hearts2hearts.official", "channelId": "UC7Q3HUnJA3nvjZR2JeMn2Cw" },
+    { "name": "SBSKPOP X INKIGAYO", "url": "https://www.youtube.com/@SBSKPOP", "channelId": "UCS_hnpJLQTvBkqALgapi_4g" },
+    { "name": "SBSKPOP ZOOM", "url": "https://www.youtube.com/@SBSKPOP_ZOOM", "channelId": "UCM3jwNRfl5-W8VzgT6DsaEQ" },
+    { "name": "KBS Kpop", "url": "https://www.youtube.com/@KBSKpop", "channelId": "UCeLPm9yH_a_QH8n6445G-Ow" },
+    { "name": "MBCkpop", "url": "https://www.youtube.com/@MBCkpop", "channelId": "UCe52oeb7Xv_KaJsEzcKXJJg" },
+    { "name": "Mnet K-POP", "url": "https://www.youtube.com/@mnet", "channelId": "UCbD8EppRX3ZwJSou-TVo90A" },
+    { "name": "THE K-POP", "url": "https://www.youtube.com/@thekpop", "channelId": "UCoRXPcv8XK5fAplLbk9PTww" },
+    { "name": "ALL THE K-POP", "url": "https://www.youtube.com/@allthekpop", "channelId": "UCPde4guD9yFBRzkxk2PatoA" },
+    { "name": "STUDIO CHOOM", "url": "https://www.youtube.com/@STUDIOCHOOM", "channelId": "UCEIi7zFR_wE23jFncVtd6-A" },
+    { "name": "아는형님 Knowingbros", "url": "https://www.youtube.com/@knowingbros", "channelId": "UCOHM2N1YQdb-cHWxJxwBMLQ" },
+    { "name": "JTBC Entertainment", "url": "https://www.youtube.com/@jtbcentertainment", "channelId": "UCFL1sCAksD6_7JIZwwHcwjQ" },
+    { "name": "런닝맨 - 스브스 공식 채널", "url": "https://www.youtube.com/channel/UCaKod3X1Tn4c7Ci0iUKcvzQ", "channelId": "UCaKod3X1Tn4c7Ci0iUKcvzQ" },
+    { "name": "SBS Entertainment", "url": "https://www.youtube.com/@SBSenter.official", "channelId": "UCmjNKt6kITwaZTqvWuaSPLg" }
+  ]
+}

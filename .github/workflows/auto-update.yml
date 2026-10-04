@@ -15,8 +15,7 @@ concurrency:
 
 jobs:
   update-videos:
-    # Owner must verify schema/security and channel IDs before enabling ingestion.
-    if: ${{ vars.ENABLE_YOUTUBE_SYNC == 'true' }}
+    # Always report configuration blockers; never silently skip the entire job.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -24,6 +23,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24.18.0'
+      - name: Validate sync configuration
+        env:
+          ENABLE_YOUTUBE_SYNC: ${{ vars.ENABLE_YOUTUBE_SYNC }}
+          YOUTUBE_CHANNEL_IDS: ${{ vars.YOUTUBE_CHANNEL_IDS }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/check-youtube-sync.cjs
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: '1.4.2'

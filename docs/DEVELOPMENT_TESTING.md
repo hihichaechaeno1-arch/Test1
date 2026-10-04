@@ -18,14 +18,16 @@ Use local/staging public configuration. Importing the importer module is safe; e
 
 ## 2. Regression suite and seams
 
-The existing tsx dependency loads TypeScript into Node's built-in test runner. No new test-framework dependency was needed. Current suite has **27 passing tests**:
+The existing tsx dependency loads TypeScript into Node's built-in test runner. No new test-framework dependency was needed. The current suite has **43 passing tests**, including nine workflow-preflight/manifest tests and seven new archive compatibility tests:
 
 | File | Boundary covered |
 | --- | --- |
 | `tests/videoData.test.ts` | Legacy/canonical row identity/image preservation, normalization, stable unknowns, malformed data rejection. |
-| `tests/archive.test.ts` | External Data API paging, smaller server caps, empty archives, database errors, cancellation. |
+| `tests/archive.test.ts` | External Data API paging, smaller server caps, empty archives, database errors, cancellation; real SDK HTTP-boundary tests for optional-description compatibility in both formats, retained descriptions, bounded retries, and fail-closed auth/schema/invalid-row behavior. |
 | `tests/components.test.tsx` | Public rendered markup: no demo playback links, valid live links/lazy images/unverified labels, member state/focus semantics. |
 | `tests/youtubeSync.test.ts` | Importer configuration/allowlist, conservative tags, wrong-channel rejection, observable failures, stable writes/refresh, bounds/retries/conflicts/backfill validation, and actual installed-SDK HTTP-boundary update behavior. |
+
+| `tests/youtubeWorkflow.test.cjs` | Actual workflow preflight CLI, missing-variable reproduction, exact approval, complete missing-setting reports, safe logging, workflow ordering, and the verified thirteen-channel manifest's compatibility with importer/preflight configuration. |
 
 Tests use real application functions/components and mock external HTTP/database services. They do not start live ingestion, create privileged browser credentials, or mutate a real database.
 
@@ -49,6 +51,8 @@ Environment: Node 24.18.0, npm 11.16.0, ephemeral Bun 1.4.2. CI is configured fo
 | Local docs links/fences/whitespace | Checked before completion. |
 
 Lifecycle scripts were disabled during local installation review. Fresh CI installation and real service/schema behavior remain separate verification steps.
+
+Later verification on 2026-10-04 (local Node 26.3.0): all **42 tests**, type-check, and production build passed. A bounded, read-only live SDK probe verified the repaired archive reader against the deployed public database: HTTP 400 for the absent optional column, then HTTP 200 and seven valid live videos. No writes, migration, or deployment occurred. See [Vercel diagnosis](VERCEL_DATA_LOAD_DIAGNOSIS.md); the earlier Chromium probes and environment table below are historical evidence.
 
 ### Chromium checks performed
 

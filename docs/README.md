@@ -17,6 +17,9 @@
 - [Setup/configuration](SETUP_CONFIGURATION.md): pinned tooling, public/private variables, database prerequisites.
 - [Data model](DATA_MODEL.md): legacy/canonical fields, validation, sample identity, and schema requirements.
 - [YouTube synchronization](YOUTUBE_SYNC.md): approved channels, discovery, refresh, limits, failures, and resume.
+- [YouTube workflow skip diagnosis](YOUTUBE_SYNC_DIAGNOSIS.md): verified GitHub run history, missing-variable root cause, preflight repair, and activation requirements.
+- [Vercel data-load diagnosis](VERCEL_DATA_LOAD_DIAGNOSIS.md): confirmed missing-description schema mismatch, backward-compatible reads, live read-only evidence, and redeployment requirements.
+- [Verified YouTube channels](YOUTUBE_CHANNELS.md): first-party verification of all 13 owner-supplied URLs, live GitHub variable updates, and outstanding importer/schema risks.
 - [Deployment/operations](DEPLOYMENT_OPERATIONS.md): security, rollout, incidents, backups, and rollback.
 - [Development/testing](DEVELOPMENT_TESTING.md): tests, checks, browser validation, and remaining coverage.
 - [Original project review](PROJECT_REVIEW.md): historical findings at baseline commit.
@@ -28,7 +31,7 @@ The original review analyzed commit `d93b74b1035af155e08902877b8cc046c14649b9` o
 
 Current implementation documents describe the modified working tree. The original review is historical, not a list of still-unfixed code defects. [Remediation status](REMEDIATION.md) is authoritative for issue progress.
 
-Validation includes local regression tests, type-checking/build, frozen Bun installation, a clean npm diagnostic installation, and mocked Chromium browser checks. No live Supabase schema, database policy, production data, deployment, GitHub variable/secret, or channel ownership was verified. No real YouTube import was executed.
+Validation includes local regression tests, type-checking/build, frozen Bun installation, a clean npm diagnostic installation, and mocked Chromium browser checks. No live Supabase schema, database policy, production data, deployment, or channel ownership was verified. The later [skip diagnosis](YOUTUBE_SYNC_DIAGNOSIS.md) inspected GitHub run history, repository variables, and secret names read-only; no credential values were retrieved. No real YouTube import was executed. The subsequent [Vercel diagnosis](VERCEL_DATA_LOAD_DIAGNOSIS.md) performed read-only requests with the deployed browser's public anon key, confirming seven valid legacy rows and an absent optional description column. No database values or keys were printed, and no database writes, migrations, or deployments were performed.
 
 Classifications:
 

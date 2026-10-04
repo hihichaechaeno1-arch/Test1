@@ -44,7 +44,7 @@ Local code repairs do not satisfy external gates automatically. No production re
 6. Set `ENABLE_YOUTUBE_SYNC=true` only after approval.
 7. Inspect the first run's counts, errors, completeness, and actual data freshness.
 
-The ingestion job is deliberately disabled by default. Its schedule/trigger exists, but no live database writer should run solely because the workflow file is present.
+Ingestion is deliberately blocked by default. Scheduled/manual jobs execute a configuration-only preflight and fail visibly when approval/settings are missing; no live database writer runs solely because the workflow file is present. Disable the workflow in Actions when intentionally paused if recurring blocked-run notifications are unwanted.
 
 ## 4. Security boundaries
 
@@ -115,7 +115,9 @@ Monitor actual last successful writes, public read/link success, failed request/
 
 ### A. Visible live-load error
 
-Check build-time public settings, selected `legacy`/`canonical` projection, required columns, public grants/RLS, invalid source rows, and network response. The app no longer hides errors with samples or an unordered retry. Inspect credentials privately; do not paste them into issue reports.
+Check build-time public settings, selected `legacy`/`canonical` projection, required columns, public grants/RLS, invalid source rows, and network response. On 2026-10-04, the Vercel deployment was confirmed to fail because `videos.description` does not exist (HTTP 400 / PostgreSQL `42703`). The repaired reader retries that specific initial error once without the optional column; all seven live legacy rows then load. Deploy the repaired source to apply this compatibility behavior; see [Vercel diagnosis](VERCEL_DATA_LOAD_DIAGNOSIS.md).
+
+The app does not hide other errors with samples, switch formats automatically, or issue an unordered fallback query. Inspect credentials privately; do not paste them into issue reports.
 
 ### B. Empty archive
 
@@ -127,7 +129,7 @@ Inspect the actual row against [Data model](DATA_MODEL.md), including valid YouT
 
 ### D. Ingestion disabled or failing
 
-First inspect `ENABLE_YOUTUBE_SYNC` and approved `YOUTUBE_CHANNEL_IDS`. If enabled, inspect missing settings, HTTP/API status classification, database-failed events, description/UPDATE schema requirements, and quota/budget. Use staging; repeated production reruns consume quota and may update many rows.
+First read the **Validate sync configuration** step and run summary. Inspect repository variables `ENABLE_YOUTUBE_SYNC` (exactly `true`) and approved `YOUTUBE_CHANNEL_IDS`, plus the three repository secrets. Configuration failures stop before dependency installation or any API/database activity. If the entire job is still skipped with zero steps, the default branch may still contain the old job-level gate; see [skip diagnosis](YOUTUBE_SYNC_DIAGNOSIS.md). If preflight passes but import fails, inspect HTTP/API status classification, database-failed events, description/UPDATE schema requirements, and quota/budget. Use staging; repeated production reruns consume quota and may update many rows.
 
 ### E. Incomplete backfill
 
