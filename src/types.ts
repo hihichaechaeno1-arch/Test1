@@ -17,6 +17,10 @@ export type VideoType = 'video' | 'shorts';
 
 export type VideoCategory = 'all' | 'mv' | 'dance' | 'vlog' | 'variety' | 'shorts';
 
+export type VideoGroup = 'official' | 'shorts' | 'stage' | 'others';
+
+export type SortOrder = 'new' | 'old' | 'popular';
+
 export interface Member {
   id: string;
   name: MemberName;
@@ -46,4 +50,5 @@ export interface VideoItem {
   description: string;
   highlightNote?: string;
   isSample?: boolean;
+  group?: VideoGroup;
 }

@@ -118,21 +118,21 @@ export const H2H_MEMBERS: Member[] = [
 ];
 
 export const MOCK_VIDEOS: VideoItem[] = [
-  // 1. 全員 8 人完整 MV
+  // 1. 全員 8 人 官方 Shorts 挑戰
   {
     id: 'vid-01',
-    title: '【MV】Hearts2Hearts - 《Heart Beat Echo》Official Music Video',
-    type: 'video',
-    category: 'mv',
+    title: '【Shorts】Hearts2Hearts 全員《Heart Beat Echo》手勢舞齊舞挑戰！',
+    type: 'shorts',
+    category: 'shorts',
     channel: 'Hearts2Hearts 官方頻道',
     members: ['Carmen', 'Jiwoo', 'Yuha', 'Stella', 'Juun', 'A-na', 'Ian', 'Ye-on'],
-    duration: '3:38',
+    duration: '0:38',
     publishedAt: '2026-03-15',
     views: '2,480,000 次觀看',
     thumbnailUrl: heroGroupImg,
     youtubeId: 'M7lc1UVf-VE',
-    description: 'Hearts2Hearts 首張迷你專輯主打曲《Heart Beat Echo》完整音樂錄影帶。8位成員全員出演，展現心動共鳴的奇幻概念。',
-    highlightNote: '全員齊舞爆發段落 (2:14)',
+    description: 'Hearts2Hearts 首張迷你專輯主打曲《Heart Beat Echo》8位成員全員出演的手勢舞挑戰短片。',
+    highlightNote: '全員齊舞卡點段落',
   },
 
   // 2. 全員 8 人 LIVE 舞台
@@ -152,20 +152,20 @@ export const MOCK_VIDEOS: VideoItem[] = [
     highlightNote: '全場粉紅燈海與成員淚光',
   },
 
-  // 3. Carmen 單人 Cover 完整影片
+  // 3. Carmen 單人 官方吉他生唱 Shorts
   {
     id: 'vid-s01',
-    title: '【SOLO】Carmen - 經典歌曲《First Love》木吉他純享生唱 Cover',
-    type: 'video',
-    category: 'vlog',
+    title: '【Shorts】Carmen 錄音室自彈自唱《First Love》30秒純享！天籟生唱',
+    type: 'shorts',
+    category: 'shorts',
     channel: 'Hearts2Hearts 官方頻道',
     members: ['Carmen'],
-    duration: '3:45',
+    duration: '0:35',
     publishedAt: '2026-03-10',
     views: '840,000 次觀看',
     thumbnailUrl: heroGroupImg,
     youtubeId: 'L_LUpnjgPso',
-    description: '隊長 Carmen 單獨一人在錄音室自彈自唱的深情翻唱，純淨嗓音洗滌心靈。',
+    description: '隊長 Carmen 單獨一人在錄音室自彈自唱的深情短片，純淨嗓音洗滌心靈。',
     highlightNote: '純人聲真假音絲滑轉換',
   },
 
@@ -186,15 +186,15 @@ export const MOCK_VIDEOS: VideoItem[] = [
     highlightNote: '地闆動作定格卡點',
   },
 
-  // 5. Yuha 單人 創作日記完整影片
+  // 5. Yuha 單人 官方琴房靈感 Shorts
   {
     id: 'vid-s03',
-    title: '【SOLO】Yuha - 琴房隨筆 VLOG：一首歌是如何誕生的小作曲家日常',
-    type: 'video',
-    category: 'vlog',
+    title: '【Shorts】Yuha 琴房隨筆！15秒即興彈奏未公開 Demo 歌曲旋律',
+    type: 'shorts',
+    category: 'shorts',
     channel: 'Hearts2Hearts 官方頻道',
     members: ['Yuha'],
-    duration: '11:15',
+    duration: '0:20',
     publishedAt: '2026-03-05',
     views: '410,000 次觀看',
     thumbnailUrl: summerConceptImg,

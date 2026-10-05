@@ -5,7 +5,8 @@
 
 import React, { useState } from 'react';
 import { VideoItem, MemberName } from '../types';
-import { ExternalLink, Play, Flame, Film, Users, Tv, Calendar } from 'lucide-react';
+import { ExternalLink, Play, Flame, Film, Users, Tv, Calendar, Sparkles } from 'lucide-react';
+import { getVideoGroup } from '../lib/videoData';
 
 interface VideoCardProps {
   video: VideoItem;
@@ -20,6 +21,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const Card = video.isSample ? 'article' : 'a';
+  const group = video.group || getVideoGroup(video);
 
   return (
     <Card
@@ -54,17 +56,30 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           </div>
         </div>
 
-        {/* Format Badge (Shorts vs Video - 精美標籤) */}
+        {/* Classification Group Badge (官方頻道 / Shorts 短片 / 舞台與直拍 / 其他影片) */}
         <div className="absolute top-3 left-3">
-          {isShorts ? (
+          {group === 'official' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-600/95 text-white tracking-wide shadow-md backdrop-blur-xs">
-              <Flame className="w-3.5 h-3.5 fill-white" />
-              Shorts 短片
+              <Sparkles className="w-3.5 h-3.5 fill-white text-white" />
+              官方頻道
             </span>
-          ) : (
+          )}
+          {group === 'shorts' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/95 text-white tracking-wide shadow-md backdrop-blur-xs">
+              <Flame className="w-3.5 h-3.5 fill-white text-white" />
+              官方 Shorts
+            </span>
+          )}
+          {group === 'stage' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-600/95 text-white tracking-wide shadow-md backdrop-blur-xs">
+              <Tv className="w-3.5 h-3.5 text-indigo-100" />
+              舞台與直拍
+            </span>
+          )}
+          {group === 'others' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-900/90 text-white tracking-wide shadow-md backdrop-blur-xs">
-              <Film className="w-3.5 h-3.5 text-rose-300" />
-              完整影片
+              <Film className="w-3.5 h-3.5 text-slate-300" />
+              其他影片
             </span>
           )}
         </div>
