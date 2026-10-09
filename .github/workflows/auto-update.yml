@@ -35,7 +35,7 @@ jobs:
         with:
           bun-version: '1.4.2'
       - name: Install locked dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
       - name: Import from approved channel IDs
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
