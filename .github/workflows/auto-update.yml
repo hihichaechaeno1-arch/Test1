@@ -2,44 +2,38 @@ name: Auto Update YouTube Videos
 
 on:
   schedule:
+    # 日常定時每 12 小時自動執行輕量更新
     - cron: '0 0,12 * * *'
   workflow_dispatch:
-
-permissions:
-  contents: read
-
-# Do not overlap scheduled and manually triggered database writers.
-concurrency:
-  group: youtube-video-sync
-  cancel-in-progress: false
+    inputs:
+      sync_mode:
+        description: '選擇同步模式：full_backfill (一次過補齊出道至今所有舊片) / incremental (只檢查最新片)'
+        required: true
+        default: 'full_backfill'
+        type: choice
+        options:
+          - full_backfill
+          - incremental
 
 jobs:
   update-videos:
-    # Always report configuration blockers; never silently skip the entire job.
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '24.18.0'
-      - name: Validate sync configuration
-        env:
-          ENABLE_YOUTUBE_SYNC: ${{ vars.ENABLE_YOUTUBE_SYNC }}
-          YOUTUBE_CHANNEL_IDS: ${{ vars.YOUTUBE_CHANNEL_IDS }}
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: node scripts/check-youtube-sync.cjs
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: '1.4.2'
-      - name: Install locked dependencies
-        run: bun install
-      - name: Import from approved channel IDs
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install @supabase/supabase-js --no-package-lock --legacy-peer-deps
+
+      - name: Run YouTube Sync Script
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          YOUTUBE_CHANNEL_IDS: ${{ vars.YOUTUBE_CHANNEL_IDS }}
+          SYNC_MODE: ${{ github.event.inputs.sync_mode || 'incremental' }}
         run: node scripts/fetch-youtube.cjs
