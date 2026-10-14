@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mapSupabaseRowToVideoItem, getVideoGroup, parseViewsCount, sortVideoItems } from '../src/lib/videoData';
+import { filterVideosByMembers, mapSupabaseRowToVideoItem, getVideoGroup, parseViewsCount, sortVideoItems } from '../src/lib/videoData';
 import type { VideoItem } from '../src/types';
 
 for (const url of [
@@ -133,3 +133,51 @@ test('sortVideoItems correctly orders videos by new, old, and popular', () => {
   const sortedPopular = sortVideoItems(sample, 'popular');
   assert.deepEqual(sortedPopular.map((v) => v.id), ['v1', 'v3', 'v2']);
 });
+
+test('filterVideosByMembers correctly handles "including" and "only" modes', () => {
+  const soloCarmen: VideoItem = {
+    id: 'solo-carmen', title: 'Carmen Solo', type: 'video', category: 'all', channel: 'Ch',
+    members: ['Carmen'], duration: '3:00', publishedAt: '2026-01-01', views: '100',
+    thumbnailUrl: 'https://example.com/c.jpg', youtubeId: '11111111111', description: '',
+  };
+  const duoCarmenStella: VideoItem = {
+    id: 'duo-carmen-stella', title: 'Carmen & Stella Duo', type: 'video', category: 'all', channel: 'Ch',
+    members: ['Carmen', 'Stella'], duration: '3:00', publishedAt: '2026-01-02', views: '200',
+    thumbnailUrl: 'https://example.com/cs.jpg', youtubeId: '22222222222', description: '',
+  };
+  const trioCarmenStellaJiwoo: VideoItem = {
+    id: 'trio-3', title: 'Carmen, Stella & Jiwoo', type: 'video', category: 'all', channel: 'Ch',
+    members: ['Carmen', 'Stella', 'Jiwoo'], duration: '3:00', publishedAt: '2026-01-03', views: '300',
+    thumbnailUrl: 'https://example.com/csj.jpg', youtubeId: '33333333333', description: '',
+  };
+  const groupAll: VideoItem = {
+    id: 'group-all', title: 'Full Group', type: 'video', category: 'all', channel: 'Ch',
+    members: ['Carmen', 'Jiwoo', 'Yuha', 'Stella', 'Juun', 'A-na', 'Ian', 'Ye-on'], duration: '3:00', publishedAt: '2026-01-04', views: '400',
+    thumbnailUrl: 'https://example.com/all.jpg', youtubeId: '44444444444', description: '',
+  };
+
+  const pool = [soloCarmen, duoCarmenStella, trioCarmenStellaJiwoo, groupAll];
+
+  // 1. Single member: 'Carmen'
+  // - including: matches all 4 (all contain Carmen)
+  const incCarmen = filterVideosByMembers(pool, ['Carmen'], 'including');
+  assert.deepEqual(incCarmen.map((v) => v.id), ['solo-carmen', 'duo-carmen-stella', 'trio-3', 'group-all']);
+
+  // - only: matches ONLY soloCarmen (members is strictly ['Carmen'])
+  const onlyCarmen = filterVideosByMembers(pool, ['Carmen'], 'only');
+  assert.deepEqual(onlyCarmen.map((v) => v.id), ['solo-carmen']);
+
+  // 2. Two members: 'Carmen' + 'Stella'
+  // - including: matches duo, trio, and group (all contain both Carmen and Stella)
+  const incDuo = filterVideosByMembers(pool, ['Carmen', 'Stella'], 'including');
+  assert.deepEqual(incDuo.map((v) => v.id), ['duo-carmen-stella', 'trio-3', 'group-all']);
+
+  // - only: matches ONLY duo-carmen-stella (strictly Carmen & Stella, excludes trio and full group)
+  const onlyDuo = filterVideosByMembers(pool, ['Carmen', 'Stella'], 'only');
+  assert.deepEqual(onlyDuo.map((v) => v.id), ['duo-carmen-stella']);
+
+  // 3. Empty selection returns all videos (shows all videos when no member is selected)
+  assert.deepEqual(filterVideosByMembers(pool, [], 'including'), pool);
+  assert.deepEqual(filterVideosByMembers(pool, [], 'only'), pool);
+});
+

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { MemberName, SortOrder, VideoCategory, VideoGroup, VideoItem, VideoType } from '../types';
+import { MemberMatchMode, MemberName, SortOrder, VideoCategory, VideoGroup, VideoItem, VideoType } from '../types';
 
 const MEMBER_NAMES: MemberName[] = ['Carmen', 'Jiwoo', 'Yuha', 'Stella', 'Juun', 'A-na', 'Ian', 'Ye-on'];
 const CATEGORIES: VideoCategory[] = ['all', 'mv', 'dance', 'vlog', 'variety', 'shorts'];
@@ -337,4 +337,33 @@ export function sortVideoItems(items: VideoItem[], order: SortOrder): VideoItem[
     return 0;
   });
 }
+
+/**
+ * Filter an array of VideoItem by selected members with either 'including' or 'only' match mode.
+ * - 'including': Video must contain all selected members (may also contain other members/group)
+ * - 'only': Video members must strictly match only the selected members (e.g. exclusive 2-member pairing or solo)
+ */
+export function filterVideosByMembers(
+  videos: VideoItem[],
+  selectedMembers: MemberName[],
+  matchMode: MemberMatchMode = 'including'
+): VideoItem[] {
+  if (selectedMembers.length === 0) return videos;
+
+  if (matchMode === 'only') {
+    return videos.filter((video) => {
+      const memberSet = new Set(video.members);
+      return (
+        memberSet.size === selectedMembers.length &&
+        selectedMembers.every((m) => memberSet.has(m))
+      );
+    });
+  }
+
+  // Default: 'including' mode
+  return videos.filter((video) =>
+    selectedMembers.every((m) => video.members.includes(m))
+  );
+}
+
 

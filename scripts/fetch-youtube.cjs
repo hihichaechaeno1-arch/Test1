@@ -7,17 +7,13 @@ const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL |
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
 const SYNC_MODE = process.env.SYNC_MODE || 'full_backfill';
-const DEBUT_DATE_ISO = '2025-01-01T00:00:00Z';
-
-if (!YOUTUBE_API_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('❌ 缺少必要的環境變數 (YOUTUBE_API_KEY / SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)');
-  process.exit(1);
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false },
+    realtime: { autoRefreshToken: false, createClient: () => null }
+  });
 }
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: false },
-  realtime: { autoRefreshToken: false, createClient: () => null }
-});
 
 // ⭐ 你指定的必抓 YouTube 播放清單 (保證 100% 全數收錄)
 const TRACKED_PLAYLISTS = [
@@ -273,4 +269,21 @@ async function main() {
   console.log(`==================================================`);
 }
 
-main();
+module.exports = {
+  detectMembers,
+  isH2HRelated,
+  loadChannels,
+  resolveChannelId,
+  saveVideoToSupabase,
+  syncPlaylistById,
+  syncChannelSearch,
+  main,
+};
+
+if (require.main === module) {
+  if (!YOUTUBE_API_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
+    console.error('❌ 缺少必要的環境變數 (YOUTUBE_API_KEY / SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)');
+    process.exit(1);
+  }
+  main();
+}

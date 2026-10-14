@@ -31,3 +31,14 @@ test('member controls announce their toggle state and retain keyboard focus styl
   assert.match(html, /aria-pressed="true"/);
   assert.match(html, /focus-visible/);
 });
+
+test('member controls render "including" and "only" mode buttons with aria-pressed', () => {
+  const member: Member = { id: 'carmen', name: 'Carmen', koreanName: '카르멘', role: '', birthday: '', mbti: '', accentColor: '', avatarBg: '', charm: '', bio: '' };
+  const htmlIncluding = renderToStaticMarkup(<MemberSelector members={[member]} selectedMembers={['Carmen']} matchMode="including" onToggleMember={() => {}} onClearAll={() => {}} onMatchModeChange={() => {}} />);
+  assert.match(htmlIncluding, /包含 \(Including\)/);
+  assert.match(htmlIncluding, /僅限 \(Only\)/);
+
+  const htmlOnly = renderToStaticMarkup(<MemberSelector members={[member]} selectedMembers={['Carmen']} matchMode="only" onToggleMember={() => {}} onClearAll={() => {}} onMatchModeChange={() => {}} />);
+  assert.match(htmlOnly, /「僅限 \(Only\)」模式/);
+});
+

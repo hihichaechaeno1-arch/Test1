@@ -4,14 +4,16 @@
  */
 
 import React, { useState } from 'react';
-import { Member, MemberName } from '../types';
-import { Check, RotateCcw, X, Users } from 'lucide-react';
+import { Member, MemberMatchMode, MemberName } from '../types';
+import { Check, RotateCcw, X, Users, Filter } from 'lucide-react';
 
 interface MemberSelectorProps {
   members: Member[];
   selectedMembers: MemberName[];
   onToggleMember: (name: MemberName) => void;
   onClearAll: () => void;
+  matchMode?: MemberMatchMode;
+  onMatchModeChange?: (mode: MemberMatchMode) => void;
 }
 
 /**
@@ -77,14 +79,16 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
   selectedMembers,
   onToggleMember,
   onClearAll,
+  matchMode = 'including',
+  onMatchModeChange = () => {},
 }) => {
   const selectedCount = selectedMembers.length;
   const hasSelected = selectedCount > 0;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-7 shadow-xs transition-all">
-      {/* 1. Top Bar: Title, Selected Count Indicator & Clear Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+      {/* 1. Top Bar: Title, Selected Count Indicator & Match Mode Toggle / Clear Button */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-base sm:text-lg font-bold text-slate-900">
@@ -102,16 +106,53 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            複選成員會搜尋包含所有所選標籤的影片；標籤不代表已核實共同出演
+            {matchMode === 'only'
+              ? '「僅限 (Only)」模式：影片成員嚴格只有所選成員（排除其他成員，適合找專屬雙人同框或個人 Solo）'
+              : '「包含 (Including)」模式：影片只要包含所選成員皆會顯示（可同時含其他成員或全員團體舞台）'}
           </p>
         </div>
 
-        {/* Clear Selection Button */}
-        <div>
+        {/* Actions: Match Mode Toggle Button + Clear Button */}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 self-start lg:self-auto">
+          {/* 'Including' vs 'Only' Toggle Buttons */}
+          <div
+            className="flex items-center p-1 bg-slate-100/90 rounded-xl text-xs font-semibold shrink-0"
+            role="group"
+            aria-label="成員篩選模式"
+          >
+            <button
+              type="button"
+              onClick={() => onMatchModeChange('including')}
+              aria-pressed={matchMode === 'including'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                matchMode === 'including'
+                  ? 'bg-white text-rose-600 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="包含模式：影片只要包含所選成員即可（可有其他成員）"
+            >
+              <span>包含 (Including)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onMatchModeChange('only')}
+              aria-pressed={matchMode === 'only'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                matchMode === 'only'
+                  ? 'bg-white text-rose-600 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="僅限模式：影片成員嚴格僅有所選成員（排除其他成員，例如專屬雙人同框或個人 Solo）"
+            >
+              <span>僅限 (Only)</span>
+            </button>
+          </div>
+
+          {/* Clear Selection Button */}
           <button
             onClick={onClearAll}
             disabled={!hasSelected}
-            className={`w-full sm:w-auto flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
               hasSelected
                 ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 cursor-pointer shadow-2xs'
                 : 'bg-slate-100 text-slate-400 border border-transparent cursor-not-allowed opacity-60'
@@ -166,42 +207,58 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
         </div>
       </div>
 
-      {/* 3. Bottom Tags: Display currently selected members */}
+      {/* 3. Bottom Tags: Display currently selected members & Active Mode */}
       {hasSelected && (
-        <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2 animate-in fade-in duration-200">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 mr-1">
-            <Users className="w-3.5 h-3.5 text-rose-500" />
-            <span>目前選中：</span>
+        <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 mr-1">
+              <Users className="w-3.5 h-3.5 text-rose-500" />
+              <span>目前選中：</span>
+            </div>
+
+            {selectedMembers.map((name) => (
+              <span
+                key={name}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs"
+              >
+                <span>{name}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleMember(name);
+                  }}
+                  className="hover:text-rose-900 hover:bg-rose-200/60 rounded-full p-0.5 transition-colors cursor-pointer"
+                  title={`取消選取 ${name}`}
+                  aria-label={`取消選取 ${name}`}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
           </div>
 
-          {selectedMembers.map((name) => (
-            <span
-              key={name}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs"
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onMatchModeChange(matchMode === 'including' ? 'only' : 'including')}
+              className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/80 transition-colors cursor-pointer"
+              title="點擊切換 包含 / 僅限 模式"
             >
-              <span>{name}</span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleMember(name);
-                }}
-                className="hover:text-rose-900 hover:bg-rose-200/60 rounded-full p-0.5 transition-colors cursor-pointer"
-                title={`取消選取 ${name}`}
-                aria-label={`取消選取 ${name}`}
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          ))}
+              <span>篩選：</span>
+              <strong className="text-rose-600 font-bold">
+                {matchMode === 'only' ? '僅限所選 (Only)' : '包含所選 (Including)'}
+              </strong>
+            </button>
 
-          <button
-            type="button"
-            onClick={onClearAll}
-            className="text-[11px] text-slate-400 hover:text-rose-600 underline ml-auto transition-colors cursor-pointer"
-          >
-            全部清除
-          </button>
+            <button
+              type="button"
+              onClick={onClearAll}
+              className="text-[11px] text-slate-400 hover:text-rose-600 underline transition-colors cursor-pointer"
+            >
+              全部清除
+            </button>
+          </div>
         </div>
       )}
     </div>

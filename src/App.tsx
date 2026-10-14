@@ -5,14 +5,14 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { H2H_MEMBERS, MOCK_VIDEOS } from './data/h2hData';
-import { MemberName, SortOrder, VideoItem, VideoType, VideoGroup } from './types';
+import { MemberMatchMode, MemberName, SortOrder, VideoItem, VideoType, VideoGroup } from './types';
 import { supabase, supabaseConfigError } from './lib/supabase';
 import { fetchArchiveVideos } from './lib/archive';
 import { MemberSelector } from './components/MemberSelector';
 import { VideoCard } from './components/VideoCard';
 import { Footer } from './components/Footer';
-import { getVideoGroup, isOfficialH2HChannel, isOfficialShortsVideo, sortVideoItems, VIDEO_GROUPS } from './lib/videoData';
-import { Search, Film, Flame, Heart, Users, Youtube, Layers, Loader2, Database, AlertCircle, RefreshCw, Sparkles, Tv, Clock, History, TrendingUp, ArrowUpDown } from 'lucide-react';
+import { filterVideosByMembers, getVideoGroup, isOfficialH2HChannel, isOfficialShortsVideo, sortVideoItems, VIDEO_GROUPS } from './lib/videoData';
+import { Search, Film, Flame, Heart, Users, Youtube, Layers, Loader2, Database, AlertCircle, RefreshCw, Sparkles, Tv, Clock, History, TrendingUp, ArrowUpDown, Filter } from 'lucide-react';
 
 export type FilterGroup = 'all' | VideoGroup;
 
@@ -36,6 +36,9 @@ export default function App() {
 
   // Member selection state (multiple selection supported)
   const [selectedMembers, setSelectedMembers] = useState<MemberName[]>([]);
+
+  // Member matching mode: 'including' (contains all selected) vs 'only' (strictly only selected)
+  const [memberMatchMode, setMemberMatchMode] = useState<MemberMatchMode>('including');
 
   // Video group filter: 'all' | 'shorts' | 'stage' | 'others'
   const [groupFilter, setGroupFilter] = useState<FilterGroup>('all');
@@ -106,11 +109,8 @@ export default function App() {
 
   // Pre-calculate count for current member selection (for tabs counter)
   const memberFilteredBase = useMemo(() => {
-    if (selectedMembers.length === 0) return [];
-    return videos.filter((video) =>
-      selectedMembers.every((m) => video.members.includes(m))
-    );
-  }, [selectedMembers, videos]);
+    return filterVideosByMembers(videos, selectedMembers, memberMatchMode);
+  }, [selectedMembers, videos, memberMatchMode]);
 
   const allCount = memberFilteredBase.length;
   const officialCount = memberFilteredBase.filter((v) => (v.group || getVideoGroup(v)) === 'official').length;
@@ -120,10 +120,6 @@ export default function App() {
 
   // Final filtered list including group filter, search query, and sort order (new, old, popular)
   const filteredVideos = useMemo(() => {
-    if (selectedMembers.length === 0) {
-      return [];
-    }
-
     const matches = memberFilteredBase.filter((video) => {
       // 1. Group filter
       const group = video.group || getVideoGroup(video);
@@ -149,7 +145,7 @@ export default function App() {
 
     // 3. Sort by 'new' (newest), 'old' (oldest), or 'popular' (highest views)
     return sortVideoItems(matches, sortOrder);
-  }, [memberFilteredBase, groupFilter, searchQuery, selectedMembers, sortOrder]);
+  }, [memberFilteredBase, groupFilter, searchQuery, sortOrder]);
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-slate-800 flex flex-col font-sans">
@@ -229,6 +225,8 @@ export default function App() {
           selectedMembers={selectedMembers}
           onToggleMember={handleToggleMember}
           onClearAll={handleClearAll}
+          matchMode={memberMatchMode}
+          onMatchModeChange={setMemberMatchMode}
         />
 
         {/* Quick Presets Recommendation Bar */}
@@ -434,41 +432,69 @@ export default function App() {
                 依據發布日期排序載入最新同框內容
               </p>
             </div>
-          ) : selectedMembers.length === 0 ? (
-            /* Conditional Rendering: When no member is selected */
-            <div className="py-16 sm:py-20 px-6 text-center bg-white rounded-2xl border border-dashed border-rose-200/90 shadow-2xs max-w-2xl mx-auto">
-              <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-4 border border-rose-100">
-                <Users className="w-8 h-8 stroke-[1.5]" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-bold text-slate-800">
-                請先選擇一位或多位成員
-              </h3>
-              <p className="mt-2 text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-                選擇一位或多位成員，搜尋包含所有所選成員標籤的影片。標籤可能來自文字推測，並非已核實的共同出演記錄。
-              </p>
-            </div>
           ) : (
-            /* When members are selected: Show header and matching videos */
+            /* Video List Section: Shows all videos if no members selected, or filtered videos if members selected */
             <div className="space-y-6">
               {/* Header Info Bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
                 <div>
                   <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <span>標籤搜尋結果</span>
+                    <span>{selectedMembers.length > 0 ? '標籤搜尋結果' : '全部收錄影片'}</span>
                     <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                       共 {filteredVideos.length} 部
                     </span>
+                    {selectedMembers.length > 0 && (
+                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                        {memberMatchMode === 'only' ? '僅限 (Only)' : '包含 (Including)'}
+                      </span>
+                    )}
                   </h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    必須包含標籤：
-                    <span className="font-semibold text-rose-700 ml-1">
-                      {selectedMembers.join(' + ')}
-                    </span>
+                    {selectedMembers.length > 0 ? (
+                      <>
+                        <span>{memberMatchMode === 'only' ? '嚴格僅限成員：' : '必須包含標籤：'}</span>
+                        <span className="font-semibold text-rose-700 ml-1">
+                          {selectedMembers.join(' + ')}
+                        </span>
+                      </>
+                    ) : (
+                      <span>顯示全部影片；可點選上方成員頭像進行同框篩選</span>
+                    )}
                     <span className="text-slate-400 ml-2 hidden sm:inline">{dataSource === 'demo' ? '（示範卡片不提供播放）' : '（點擊卡片將於新分頁開啟 YouTube）'}</span>
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  {/* Mode switch button - shown when members are selected */}
+                  {selectedMembers.length > 0 && (
+                    <div className="flex items-center p-0.5 bg-slate-100 rounded-lg text-xs font-medium">
+                      <button
+                        type="button"
+                        onClick={() => setMemberMatchMode('including')}
+                        aria-pressed={memberMatchMode === 'including'}
+                        className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                          memberMatchMode === 'including'
+                            ? 'bg-white text-rose-600 shadow-2xs font-semibold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        包含 (Including)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMemberMatchMode('only')}
+                        aria-pressed={memberMatchMode === 'only'}
+                        className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                          memberMatchMode === 'only'
+                            ? 'bg-white text-rose-600 shadow-2xs font-semibold'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        僅限 (Only)
+                      </button>
+                    </div>
+                  )}
+
                   {fetchError && (
                     <button
                       onClick={fetchVideosFromSupabase}
@@ -509,10 +535,14 @@ export default function App() {
                     <Film className="w-7 h-7 stroke-[1.5]" />
                   </div>
                   <h4 className="text-base sm:text-lg font-bold text-slate-800">
-                    暫時沒有找到符合標籤的影片
+                    暫時沒有找到符合條件的影片
                   </h4>
                   <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
-                    所選成員 <strong>{selectedMembers.join(' + ')}</strong> 在「{groupFilter === 'all' ? '全部' : VIDEO_GROUPS[groupFilter]?.label || groupFilter}」分類下尚未有符合記錄，請嘗試切換分類、清除關鍵字或調整選取組合。
+                    {selectedMembers.length > 0 ? (
+                      <>所選成員 <strong>{selectedMembers.join(' + ')}</strong> 在「{groupFilter === 'all' ? '全部' : VIDEO_GROUPS[groupFilter]?.label || groupFilter}」分類下尚未有符合記錄，請嘗試切換分類、切換為包含模式或調整選取組合。</>
+                    ) : (
+                      <>在「{groupFilter === 'all' ? '全部' : VIDEO_GROUPS[groupFilter]?.label || groupFilter}」分類或目前關鍵字下查無影片，請嘗試清除關鍵字或切換分類。</>
+                    )}
                   </p>
                   <div className="mt-4 flex items-center justify-center gap-2">
                     {groupFilter !== 'all' && (
@@ -523,12 +553,14 @@ export default function App() {
                         查看全部分類
                       </button>
                     )}
-                    <button
-                      onClick={handleClearAll}
-                      className="px-3.5 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                    >
-                      重設成員選擇
-                    </button>
+                    {selectedMembers.length > 0 && (
+                      <button
+                        onClick={handleClearAll}
+                        className="px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                      >
+                        清除成員條件
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

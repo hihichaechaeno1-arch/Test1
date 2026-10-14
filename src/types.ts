@@ -21,6 +21,8 @@ export type VideoGroup = 'official' | 'shorts' | 'stage' | 'others';
 
 export type SortOrder = 'new' | 'old' | 'popular';
 
+export type MemberMatchMode = 'including' | 'only';
+
 export interface Member {
   id: string;
   name: MemberName;
