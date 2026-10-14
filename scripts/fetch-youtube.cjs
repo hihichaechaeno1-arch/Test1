@@ -6,9 +6,7 @@ const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
-// 讀取執行模式：'incremental' (日常檢查最新) 或 'full_backfill' (抓取自出道以來所有舊片)
-const SYNC_MODE = process.env.SYNC_MODE || 'incremental';
-// Hearts2Hearts 出道年份起點 (2025年初預熱與出道)
+const SYNC_MODE = process.env.SYNC_MODE || 'full_backfill';
 const DEBUT_DATE_ISO = '2025-01-01T00:00:00Z';
 
 if (!YOUTUBE_API_KEY || !SUPABASE_URL || !SUPABASE_KEY) {
@@ -20,6 +18,15 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false },
   realtime: { autoRefreshToken: false, createClient: () => null }
 });
+
+// ⭐ 你指定的必抓 YouTube 播放清單 (保證 100% 全數收錄)
+const TRACKED_PLAYLISTS = [
+  {
+    name: 'Hearts2Hearts Curated Playlist',
+    playlistId: 'PLHhitGId-8_9aLsTwJimaXZcjGBlPzrlh',
+    skipKeywordFilter: true // 清單內的影片全部直接收錄，唔怕漏片
+  }
+];
 
 // 8 位成員中英韓別名字典
 const MEMBER_MAP = {
@@ -54,7 +61,6 @@ function isH2HRelated(title, description) {
   return Object.values(MEMBER_MAP).flat().some(alias => fullText.includes(alias));
 }
 
-// 載入 config/youtube-channels.json
 function loadChannels() {
   const configPath = path.join(__dirname, '..', 'config', 'youtube-channels.json');
   if (fs.existsSync(configPath)) {
@@ -64,7 +70,6 @@ function loadChannels() {
   return [];
 }
 
-// 透過 handle (@xxx) 或名稱反查官方 Channel ID (UC...)
 async function resolveChannelId(channel) {
   if (channel.channelId && channel.channelId.startsWith('UC')) {
     return channel.channelId;
@@ -81,9 +86,10 @@ async function resolveChannelId(channel) {
   return null;
 }
 
-// 儲存單條影片入 Supabase (Upsert 防重複)
 async function saveVideoToSupabase({ videoId, title, description, publishedAt, channelTitle }) {
   if (!videoId || videoId.length < 5) return false;
+  // 跳過已被設為 Private 或 Deleted 嘅無效清單影片
+  if (title === 'Private video' || title === 'Deleted video') return false;
 
   const isShorts = `${title} ${description}`.toLowerCase().includes('#shorts') || `${title}`.toLowerCase().includes('shorts');
   const type = isShorts ? 'shorts' : 'video';
@@ -102,27 +108,25 @@ async function saveVideoToSupabase({ videoId, title, description, publishedAt, c
     .maybeSingle();
 
   if (existing) {
-    return false; // 已存在則跳過
+    return false;
   }
 
   const payload = {
     title,
     url: videoUrl,
     thumbnail,
-    channel: channelTitle,
+    channel: channelTitle || 'Hearts2Hearts',
     type,
     published_at: pubDate,
     members
   };
 
-  // 如果資料庫已經跑咗 add_videos_description migration，一併存入 description
   const { error } = await supabase.from('videos').insert({
     ...payload,
     description: description || ''
   });
 
   if (error) {
-    // 若因無 description 欄位報錯，退回基礎欄位寫入
     const { error: retryErr } = await supabase.from('videos').insert(payload);
     if (retryErr) {
       console.error(`❌ 寫入失敗 [${title}]:`, retryErr.message);
@@ -134,25 +138,24 @@ async function saveVideoToSupabase({ videoId, title, description, publishedAt, c
   return true;
 }
 
-// 針對官方主頻道：利用 Uploads Playlist (UU...) 100% 翻頁抓齊出道至今每一條片 (極慳 Quota)
-async function syncUploadsPlaylist(channelId, channelName, maxPages) {
-  const uploadsPlaylistId = 'UU' + channelId.slice(2);
+// 通用 Playlist 翻頁抓取器（同時支援你指定的 Playlist 同埋官方頻道的 UU Uploads 清單）
+async function syncPlaylistById(playlistId, labelName, maxPages, skipKeywordFilter = false) {
   let nextPageToken = '';
   let page = 0;
   let added = 0;
 
-  console.log(`📂 使用 Uploads 清單 (${uploadsPlaylistId}) 深度掃描 [${channelName}] (最多翻 ${maxPages} 頁)...`);
+  console.log(`\n📂 開始掃描播放清單 [${labelName}] (ID: ${playlistId}, 最多翻 ${maxPages} 頁)...`);
 
   do {
     page++;
-    let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${uploadsPlaylistId}&maxResults=50&key=${YOUTUBE_API_KEY}`;
+    let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=50&key=${YOUTUBE_API_KEY}`;
     if (nextPageToken) url += `&pageToken=${nextPageToken}`;
 
     const res = await fetch(url);
     const data = await res.json();
 
     if (data.error) {
-      console.error(`⚠️ Playlist 讀取錯誤 (${channelName}):`, data.error.message);
+      console.error(`⚠️ Playlist 讀取錯誤 (${labelName}):`, data.error.message);
       break;
     }
 
@@ -161,15 +164,14 @@ async function syncUploadsPlaylist(channelId, channelName, maxPages) {
 
     for (const item of items) {
       const snippet = item.snippet || {};
-      const videoId = snippet.resourceId?.videoId;
+      const videoId = snippet.resourceId?.videoId || item.contentDetails?.videoId;
       const title = snippet.title || '';
       const description = snippet.description || '';
-      const publishedAt = snippet.publishedAt || '';
-      const channelTitle = snippet.videoOwnerChannelTitle || snippet.channelTitle || channelName;
+      // 優先取影片真實發布時間 (contentDetails.videoPublishedAt)，若無才取加入清單時間
+      const publishedAt = item.contentDetails?.videoPublishedAt || snippet.publishedAt || '';
+      const channelTitle = snippet.videoOwnerChannelTitle || snippet.channelTitle || labelName;
 
-      // 如果是電視台頻道，必須過濾出同 Hearts2Hearts 相關嘅片，而且唔早於出道年份
-      const isOfficialMain = channelName.toLowerCase().includes('hearts2hearts');
-      if (!isOfficialMain && !isH2HRelated(title, description)) {
+      if (!skipKeywordFilter && !isH2HRelated(title, description)) {
         continue;
       }
 
@@ -180,17 +182,16 @@ async function syncUploadsPlaylist(channelId, channelName, maxPages) {
     nextPageToken = data.nextPageToken || '';
   } while (nextPageToken && page < maxPages);
 
-  console.log(`✅ [${channelName}] 掃描咗 ${page} 頁，新增咗 ${added} 條影片`);
+  console.log(`✅ [${labelName}] 掃描咗 ${page} 頁，共新增 ${added} 條影片`);
   return added;
 }
 
-// 針對大型電視台頻道：喺頻道內搜尋 Hearts2Hearts 並支援向後翻頁抓齊自出道以來嘅舞台
 async function syncChannelSearch(channelId, channelName, maxPages) {
   let nextPageToken = '';
   let page = 0;
   let added = 0;
 
-  console.log(`🔍 在電視台頻道 [${channelName}] 內深度搜尋 Hearts2Hearts (最多翻 ${maxPages} 頁)...`);
+  console.log(`\n🔍 在電視台頻道 [${channelName}] 內搜尋 Hearts2Hearts (最多翻 ${maxPages} 頁)...`);
 
   do {
     page++;
@@ -211,7 +212,7 @@ async function syncChannelSearch(channelId, channelName, maxPages) {
     for (const item of items) {
       const videoId = item.id?.videoId;
       const snippet = item.snippet || {};
-      if (snippet.channelId !== channelId) continue; // 嚴格鎖定頻道 ID
+      if (snippet.channelId !== channelId) continue;
 
       const title = snippet.title || '';
       const description = snippet.description || '';
@@ -227,7 +228,7 @@ async function syncChannelSearch(channelId, channelName, maxPages) {
     nextPageToken = data.nextPageToken || '';
   } while (nextPageToken && page < maxPages);
 
-  console.log(`✅ [${channelName}] 搜尋咗 ${page} 頁，新增咗 ${added} 條影片`);
+  console.log(`✅ [${channelName}] 搜尋咗 ${page} 頁，共新增 ${added} 條影片`);
   return added;
 }
 
@@ -236,12 +237,16 @@ async function main() {
   console.log(`🚀 啟動 YouTube 同步腳本 | 模式: ${SYNC_MODE}`);
   console.log(`==================================================`);
 
-  const channels = loadChannels();
   let totalAdded = 0;
 
-  // 如果係 full_backfill 模式，官方主頻道翻最多 20 頁 (1,000條片，足夠覆蓋出道至今所有片)，電視台頻道翻最多 5 頁 (250條片)
-  // 如果係日常 incremental 模式，只翻第 1 頁
-  const officialMaxPages = SYNC_MODE === 'full_backfill' ? 20 : 1;
+  // 1. 優先完整掃描你指定的 Playlist (最多翻 30 頁 = 1,500 條片，確保全數抓齊)
+  for (const pl of TRACKED_PLAYLISTS) {
+    totalAdded += await syncPlaylistById(pl.playlistId, pl.name, 30, pl.skipKeywordFilter);
+  }
+
+  // 2. 掃描 config/youtube-channels.json 內的官方與電視台頻道
+  const channels = loadChannels();
+  const officialMaxPages = SYNC_MODE === 'full_backfill' ? 20 : 2;
   const broadcastMaxPages = SYNC_MODE === 'full_backfill' ? 5 : 1;
 
   for (const ch of channels) {
@@ -256,10 +261,9 @@ async function main() {
     const isOfficialMain = name.toLowerCase().includes('hearts2hearts') || (ch.handle || '').toLowerCase().includes('hearts2hearts');
 
     if (isOfficialMain) {
-      // 官方主頻道直接抽整個 Uploads 清單，100% 唔會漏任何一條舊片或 Shorts！
-      totalAdded += await syncUploadsPlaylist(channelId, name, officialMaxPages);
+      const uploadsPlaylistId = 'UU' + channelId.slice(2);
+      totalAdded += await syncPlaylistById(uploadsPlaylistId, name, officialMaxPages, true);
     } else {
-      // 電視台頻道用 publishedAfter=2025-01-01 + 翻頁搜尋
       totalAdded += await syncChannelSearch(channelId, name, broadcastMaxPages);
     }
   }
