@@ -1,56 +1,55 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
+export type MemberId =
+  | 'carmen'
+  | 'jiwoo'
+  | 'yuha'
+  | 'stella'
+  | 'juun'
+  | 'ana'
+  | 'ian'
+  | 'yeon';
 
-export type MemberName =
-  | 'Carmen'
-  | 'Jiwoo'
-  | 'Yuha'
-  | 'Stella'
-  | 'Juun'
-  | 'A-na'
-  | 'Ian'
-  | 'Ye-on';
-
-export type VideoType = 'video' | 'shorts';
-
-export type VideoCategory = 'all' | 'mv' | 'dance' | 'vlog' | 'variety' | 'shorts';
-
-export type VideoGroup = 'official' | 'shorts' | 'stage' | 'others';
-
-export type SortOrder = 'new' | 'old' | 'popular';
-
-export type MemberMatchMode = 'including' | 'only';
+// 5 大精準影片分類代碼
+export type VideoCategory =
+  | 'mv'
+  | 'shorts'
+  | 'stage'
+  | 'original'
+  | 'other';
 
 export interface Member {
-  id: string;
-  name: MemberName;
+  id: MemberId;
+  name: string;
   koreanName: string;
+  birthYear: number;
   role: string;
-  birthday: string;
-  mbti: string;
-  accentColor: string;
-  avatarBg: string;
-  charm: string;
-  bio: string;
-  imageUrl?: string;
+  emoji: string;
+  imageUrl: string;
+  color: string;
+  description: string;
 }
 
-export interface VideoItem {
+export interface Video {
   id: string;
   title: string;
-  type: VideoType;
-  category: VideoCategory;
-  channel: string;
-  members: MemberName[];
-  duration: string;
-  publishedAt: string;
-  views: string;
+  url?: string;
+  videoUrl?: string;
+  thumbnail?: string;
   thumbnailUrl: string;
-  youtubeId: string;
-  description: string;
-  highlightNote?: string;
-  isSample?: boolean;
-  group?: VideoGroup;
+  channel?: string;
+  type: VideoCategory | 'video';
+  category: string;
+  published_at?: string;
+  date: string;
+  duration: string;
+  views: string;
+  members: MemberId[];
+  description?: string;
+}
+
+export interface Pairing {
+  id: string;
+  names: string;
+  members: [MemberId, MemberId];
+  chemistry: string;
+  recommendedVideoIds: string[];
 }
