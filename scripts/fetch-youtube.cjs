@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
-// 自動支援所有常見的環境變數命名，防止因為 Secret 名稱微調而報錯失敗
 const YOUTUBE_API_KEY = (process.env.YOUTUBE_API_KEY || '').trim();
 const SUPABASE_URL = (
   process.env.SUPABASE_URL ||
@@ -23,7 +22,7 @@ const SUPABASE_KEY = (
 const SYNC_MODE = process.env.SYNC_MODE || 'full_backfill';
 const DEBUT_DATE_ISO = '2025-01-01T00:00:00Z';
 
-// ⭐ 你指定的必抓 YouTube 播放清單 (保證 100% 由頭到尾全數收錄)
+// 1. 你指定的必抓 YouTube 播放清單 (清單內的片 100% 全部直接收錄)
 const TRACKED_PLAYLISTS = [
   {
     name: 'Hearts2Hearts Curated Playlist',
@@ -32,37 +31,37 @@ const TRACKED_PLAYLISTS = [
   }
 ];
 
-// 8 位成員中英韓別名字典
-const MEMBER_MAP = {
-  'Carmen': ['carmen', '카르멘'],
-  'Jiwoo': ['jiwoo', '지우'],
-  'Yuha': ['yuha', '유하'],
-  'Stella': ['stella', '스텔라'],
-  'Juun': ['juun', '준'],
-  'A-na': ['a-na', 'ana', '에이나', '아나'],
-  'Ian': ['ian', '이안'],
-  'Ye-on': ['ye-on', 'yeon', '예온']
+// 2. 8 位成員精確比對規則（使用正則邊界，防止將韓文 준비 當成 준，或將英文單字當成 ana/ian）
+const MEMBER_PATTERNS = {
+  'Carmen': [/\bcarmen\b/i, /카르멘/],
+  'Jiwoo': [/\bjiwoo\b/i, /지우/],
+  'Yuha': [/\byuha\b/i, /유하/],
+  'Stella': [/\bstella\b/i, /스텔라/],
+  'Juun': [/\bjuun\b/i, /(?<![가-힣])준(?![가-힣])/],
+  'A-na': [/\ba-na\b/i, /에이나/],
+  'Ian': [/\bian\b/i, /이안/],
+  'Ye-on': [/\bye-on\b/i, /예온/]
 };
 
-const ALL_MEMBERS = Object.keys(MEMBER_MAP);
+const ALL_MEMBERS = Object.keys(MEMBER_PATTERNS);
 
 function detectMembers(text) {
   if (!text) return ALL_MEMBERS;
-  const content = String(text).toLowerCase();
+  const content = String(text);
   const matched = [];
-  for (const [name, aliases] of Object.entries(MEMBER_MAP)) {
-    if (aliases.some(alias => content.includes(alias))) {
+  for (const [name, patterns] of Object.entries(MEMBER_PATTERNS)) {
+    if (patterns.some(regex => regex.test(content))) {
       matched.push(name);
     }
   }
   return matched.length > 0 ? matched : ALL_MEMBERS;
 }
 
-function isH2HRelated(title, description) {
-  const fullText = `${title || ''} ${description || ''}`.toLowerCase();
-  const groupKeywords = ['hearts2hearts', 'hearts 2 hearts', '하츠투하츠', 'h2h'];
-  if (groupKeywords.some(k => fullText.includes(k))) return true;
-  return Object.values(MEMBER_MAP).flat().some(alias => fullText.includes(alias));
+// 3. 嚴格檢查：外部電視台頻道的「影片標題 (Title)」必須明確包含 Hearts2Hearts 或 하츠투하츠
+function isH2HRelated(title) {
+  const titleText = String(title || '').toLowerCase();
+  const groupKeywords = ['hearts2hearts', 'hearts 2 hearts', '하츠투하츠'];
+  return groupKeywords.some(k => titleText.includes(k));
 }
 
 function loadChannels() {
@@ -190,7 +189,7 @@ async function syncPlaylistById(supabase, playlistId, labelName, maxPages, skipK
         const publishedAt = item.contentDetails?.videoPublishedAt || snippet.publishedAt || '';
         const channelTitle = snippet.videoOwnerChannelTitle || snippet.channelTitle || labelName;
 
-        if (!skipKeywordFilter && !isH2HRelated(title, description)) {
+        if (!skipKeywordFilter && !isH2HRelated(title)) {
           continue;
         }
 
@@ -218,7 +217,7 @@ async function syncChannelSearch(supabase, channelId, channelName, maxPages) {
 
   do {
     page++;
-    let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&q=${encodeURIComponent('Hearts2Hearts | 하츠투하츠')}&type=video&order=date&maxResults=50&publishedAfter=${DEBUT_DATE_ISO}&key=${YOUTUBE_API_KEY}`;
+    let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&q=${encodeURIComponent('Hearts2Hearts')}&type=video&order=date&maxResults=50&publishedAfter=${DEBUT_DATE_ISO}&key=${YOUTUBE_API_KEY}`;
     if (nextPageToken) url += `&pageToken=${nextPageToken}`;
 
     try {
@@ -243,7 +242,8 @@ async function syncChannelSearch(supabase, channelId, channelName, maxPages) {
         const publishedAt = snippet.publishedAt || '';
         const channelTitle = snippet.channelTitle || channelName;
 
-        if (!isH2HRelated(title, description)) continue;
+        // 強制規定：電視台搜尋結果的「標題」必須有 Hearts2Hearts 或 하츠투하츠
+        if (!isH2HRelated(title)) continue;
 
         const ok = await saveVideoToSupabase(supabase, { videoId, title, description, publishedAt, channelTitle });
         if (ok) added++;
@@ -263,13 +263,10 @@ async function syncChannelSearch(supabase, channelId, channelName, maxPages) {
 async function main() {
   console.log(`==================================================`);
   console.log(`🚀 啟動 YouTube 同步腳本 | 模式: ${SYNC_MODE}`);
-  console.log(`🔑 YOUTUBE_API_KEY 已載入: ${Boolean(YOUTUBE_API_KEY)}`);
-  console.log(`🌐 SUPABASE_URL: ${SUPABASE_URL}`);
-  console.log(`🔐 SUPABASE_KEY 已載入: ${Boolean(SUPABASE_KEY)}`);
   console.log(`==================================================`);
 
   if (!YOUTUBE_API_KEY || !SUPABASE_KEY) {
-    console.error('❌ 缺少 YOUTUBE_API_KEY 或 SUPABASE_SERVICE_ROLE_KEY！請到 GitHub Settings -> Secrets and variables -> Actions 確認已設定這兩個 Repository Secrets。');
+    console.error('❌ 缺少 YOUTUBE_API_KEY 或 SUPABASE_SERVICE_ROLE_KEY！');
     process.exit(1);
   }
 
@@ -280,12 +277,12 @@ async function main() {
 
   let totalAdded = 0;
 
-  // 1. 優先完整掃描你指定的 Playlist (最多翻 30 頁 = 1,500 條片)
+  // 第一部分：優先 100% 掃描你指定的 Playlist (最多翻 30 頁 = 1,500 條片)
   for (const pl of TRACKED_PLAYLISTS) {
     totalAdded += await syncPlaylistById(supabase, pl.playlistId, pl.name, 30, pl.skipKeywordFilter);
   }
 
-  // 2. 掃描 config/youtube-channels.json 內的官方與電視台頻道
+  // 第二部分：掃描 config/youtube-channels.json 內的官方與電視台頻道
   const channels = loadChannels();
   const officialMaxPages = SYNC_MODE === 'full_backfill' ? 20 : 2;
   const broadcastMaxPages = SYNC_MODE === 'full_backfill' ? 5 : 1;
@@ -316,7 +313,6 @@ async function main() {
   console.log(`==================================================`);
 }
 
-// 只有直接透過 node scripts/fetch-youtube.cjs 執行時先會跑 main()，避免被其他測試檔引入時崩潰
 if (require.main === module) {
   main().catch(err => {
     console.error('❌ 執行過程發生未預期錯誤:', err);
