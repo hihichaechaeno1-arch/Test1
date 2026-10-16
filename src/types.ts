@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 export type MemberId =
   | 'carmen'
   | 'jiwoo'
@@ -25,9 +20,10 @@ export type MemberName =
   | 'Ian'
   | 'Ye-on';
 
-export type MemberMatchMode = 'including' | 'only' | 'AND' | 'OR' | 'and' | 'or';
+// 同時支援 ONLY (只限該成員) / INCLUDE (包含該成員) 及兼容舊版 AND / OR
+export type MemberMatchMode = 'ONLY' | 'INCLUDE' | 'AND' | 'OR' | 'only' | 'include' | 'and' | 'or';
 
-export type SortOrder = 'new' | 'old' | 'popular' | 'newest' | 'oldest' | 'views';
+export type SortOrder = 'newest' | 'oldest' | 'popular' | 'views';
 
 export type VideoType =
   | 'video'
@@ -39,66 +35,53 @@ export type VideoType =
   | string;
 
 export type VideoGroup =
-  | 'all'
-  | 'official'
-  | 'shorts'
-  | 'stage'
-  | 'others'
-  | 'mv'
-  | 'original'
-  | 'other'
+  | 'All'
   | 'Official Music Videos (MVs)'
   | 'Shorts & Challenges'
   | 'Stage Performances'
   | 'Original Content'
   | 'Other Official / Semi-official Content'
+  | 'Official H2H'
+  | 'Shorts'
+  | 'External Channels'
   | string;
 
 export type VideoCategory = VideoGroup;
 
 export interface Member {
   id: MemberId;
-  name: MemberName;
+  name: MemberName | string;
   koreanName: string;
-  role: string;
-  birthday?: string;
   birthYear?: number;
+  birthday?: string;
   mbti?: string;
-  accentColor?: string;
-  color?: string;
-  avatarBg?: string;
+  role: string;
   charm?: string;
   bio?: string;
-  imageUrl?: string;
-  image?: string;
   emoji?: string;
+  imageUrl: string;
+  avatarBg?: string;
+  color: string;
   description?: string;
 }
 
 export interface VideoItem {
   id: string;
   title: string;
-  category?: string;
-  date?: string;
+  category: string;
+  date: string;
   publishedAt?: string;
   published_at?: string;
-  duration?: string;
-  thumbnailUrl?: string;
+  duration: string;
+  thumbnailUrl: string;
   thumbnail?: string;
-  videoUrl?: string;
+  videoUrl: string;
   url?: string;
-  youtubeId?: string;
   channel?: string;
   type?: VideoType;
-  views?: string;
-  viewsCount?: number;
-  viewCount?: number;
-  members: (MemberName | string)[];
+  views: string;
+  members: (MemberName | MemberId | string)[];
   description?: string;
-  group?: VideoGroup;
-  genre?: VideoCategory | string;
-  isSample?: boolean;
-  highlightNote?: string;
 }
 
 export type Video = VideoItem;
