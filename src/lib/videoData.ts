@@ -300,23 +300,17 @@ export function filterVideosByMembers(
       )
     );
 
-    // 1. ONLY 模式：影片成員數量與名單必須「完全一致」（只限呢幾位成員出場，冇其他人）
-    if (mode === 'ONLY') {
+    // 1. ONLY 模式（UI 撳 "Only" 掣時傳入 'AND' 或 'ONLY'）：
+    // 影片成員數量與名單必須「完全一致」（只限呢幾位成員出場，冇其他人）
+    if (mode === 'ONLY' || mode === 'AND') {
       return (
         videoMembers.length === normalizedSelected.length &&
         normalizedSelected.every(m => videoMembers.includes(m))
       );
     }
 
-    // 2. INCLUDE 模式（或傳統 OR）：包含所選成員
-    if (mode === 'INCLUDE' || mode === 'AND') {
-      return normalizedSelected.every(m => videoMembers.includes(m));
-    }
-
-    if (mode === 'OR') {
-      return normalizedSelected.some(m => videoMembers.includes(m));
-    }
-
+    // 2. INCLUDE 模式（UI 撳 "Include" 掣時傳入 'OR' 或 'INCLUDE'）：
+    // 只要影片包含所選成員（無論係單人、小分隊定 8 人團體片）都顯示！
     return normalizedSelected.every(m => videoMembers.includes(m));
   });
 }
