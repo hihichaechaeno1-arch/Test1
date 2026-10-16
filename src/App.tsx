@@ -77,7 +77,7 @@ export default function App() {
   const showDemo = useCallback(() => {
     request.current?.abort();
     setVideos(MOCK_VIDEOS.filter(isSearchableVideo).map(video => ({ ...video, isSample: true }))
-      .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)));
+      .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || '')));
     setDataSource('demo');
     setFetchError(null);
     setIsLoading(false);
@@ -168,9 +168,9 @@ export default function App() {
       // 2. Search query filter
       if (searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase().trim();
-        const matchesTitle = video.title.toLowerCase().includes(query);
-        const matchesChannel = video.channel.toLowerCase().includes(query);
-        const matchesDescription = video.description.toLowerCase().includes(query);
+        const matchesTitle = (video.title || '').toLowerCase().includes(query);
+        const matchesChannel = (video.channel || '').toLowerCase().includes(query);
+        const matchesDescription = (video.description || '').toLowerCase().includes(query);
         const catInfo = FIVE_CATEGORIES[genre];
         const matchesCat =
           catInfo?.label.toLowerCase().includes(query) ||

@@ -46,7 +46,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             loading="lazy"
             decoding="async"
             referrerPolicy="no-referrer"
-            onError={() => setFailedImage(video.thumbnailUrl)}
+            onError={() => setFailedImage(video.thumbnailUrl || null)}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         )}
@@ -142,7 +142,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
             <div className="flex flex-wrap gap-1.5">
               {video.members.map((memberName) => {
-                const isSelected = selectedMembers.includes(memberName);
+                const isSelected = (selectedMembers as string[]).includes(memberName);
                 return (
                   <span
                     key={memberName}

@@ -129,7 +129,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                   <button
                     key={memberName}
                     onClick={() => {
-                      onSelectMember(memberName);
+                      onSelectMember(memberName as MemberName);
                       onClose();
                     }}
                     className="px-3 py-1 rounded-full text-xs font-medium bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition-colors flex items-center gap-1"
