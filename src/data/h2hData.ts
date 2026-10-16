@@ -5,10 +5,10 @@
 
 import { Member, VideoItem } from '../types';
 
-import heroGroupImg from '../assets/images/hero_h2h_group_1790790752463.webp';
-import summerConceptImg from '../assets/images/h2h_concept_summer_1790790764260.webp';
-import dancePracticeImg from '../assets/images/h2h_dance_practice_1790790775576.webp';
-import vlogThumbnailImg from '../assets/images/h2h_vlog_thumbnail_1790790786654.webp';
+const heroGroupImg = new URL('../assets/images/hero_h2h_group_1790790752463.webp', import.meta.url).href;
+const summerConceptImg = new URL('../assets/images/h2h_concept_summer_1790790764260.webp', import.meta.url).href;
+const dancePracticeImg = new URL('../assets/images/h2h_dance_practice_1790790775576.webp', import.meta.url).href;
+const vlogThumbnailImg = new URL('../assets/images/h2h_vlog_thumbnail_1790790786654.webp', import.meta.url).href;
 
 export const H2H_MEMBERS: Member[] = [
   {
@@ -390,3 +390,6 @@ export const MOCK_VIDEOS: VideoItem[] = [
     highlightNote: 'Jiwoo & Stella 雙人對跳段落',
   },
 ];
+
+export const VIDEOS = MOCK_VIDEOS;
+

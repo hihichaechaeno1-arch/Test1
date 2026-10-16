@@ -5,8 +5,8 @@
 
 import React, { useState } from 'react';
 import { VideoItem, MemberName } from '../types';
-import { ExternalLink, Play, Flame, Film, Users, Tv, Calendar, Sparkles } from 'lucide-react';
-import { getVideoGroup } from '../lib/videoData';
+import { ExternalLink, Play, Flame, Film, Users, Tv, Calendar, Sparkles, Layers } from 'lucide-react';
+import { classifyVideoGenre, getVideoGroup } from '../lib/videoData';
 
 interface VideoCardProps {
   video: VideoItem;
@@ -17,10 +17,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   video,
   selectedMembers,
 }) => {
-  const isShorts = video.type === 'shorts';
+  const isShorts = video.type === 'shorts' || (video.genre || classifyVideoGenre(video.title, video.description, video.channel, video.url, video.type)) === 'shorts';
   const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const Card = video.isSample ? 'article' : 'a';
+  const genre = video.genre || classifyVideoGenre(video.title, video.description, video.channel, video.url, video.type);
   const group = video.group || getVideoGroup(video);
 
   return (
@@ -56,30 +57,36 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           </div>
         </div>
 
-        {/* Classification Group Badge (官方頻道 / Shorts 短片 / 舞台與直拍 / 其他影片) */}
+        {/* Classification Group Badge (5 大分類徽章) */}
         <div className="absolute top-3 left-3">
-          {group === 'official' && (
+          {genre === 'mv' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-600/95 text-white tracking-wide shadow-md backdrop-blur-xs">
-              <Sparkles className="w-3.5 h-3.5 fill-white text-white" />
-              官方頻道
+              <Film className="w-3.5 h-3.5 fill-white text-white" />
+              官方 MV
             </span>
           )}
-          {group === 'shorts' && (
+          {genre === 'shorts' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/95 text-white tracking-wide shadow-md backdrop-blur-xs">
               <Flame className="w-3.5 h-3.5 fill-white text-white" />
-              官方 Shorts
+              Shorts & 挑戰
             </span>
           )}
-          {group === 'stage' && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-600/95 text-white tracking-wide shadow-md backdrop-blur-xs">
-              <Tv className="w-3.5 h-3.5 text-indigo-100" />
+          {genre === 'stage' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-600/95 text-white tracking-wide shadow-md backdrop-blur-xs">
+              <Tv className="w-3.5 h-3.5 text-sky-100" />
               舞台與直拍
             </span>
           )}
-          {group === 'others' && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-900/90 text-white tracking-wide shadow-md backdrop-blur-xs">
-              <Film className="w-3.5 h-3.5 text-slate-300" />
-              其他影片
+          {genre === 'original' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600/95 text-white tracking-wide shadow-md backdrop-blur-xs">
+              <Sparkles className="w-3.5 h-3.5 fill-white text-white" />
+              自製團綜 / Vlog
+            </span>
+          )}
+          {genre === 'other' && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-700/95 text-white tracking-wide shadow-md backdrop-blur-xs">
+              <Layers className="w-3.5 h-3.5 text-purple-200" />
+              其他官方影音
             </span>
           )}
         </div>

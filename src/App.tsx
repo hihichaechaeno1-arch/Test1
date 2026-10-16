@@ -5,22 +5,47 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { H2H_MEMBERS, MOCK_VIDEOS } from './data/h2hData';
-import { MemberMatchMode, MemberName, SortOrder, VideoItem, VideoType, VideoGroup } from './types';
+import { MemberMatchMode, MemberName, SortOrder, VideoItem, VideoType, VideoGroup, VideoCategory } from './types';
 import { supabase, supabaseConfigError } from './lib/supabase';
 import { fetchArchiveVideos } from './lib/archive';
 import { MemberSelector } from './components/MemberSelector';
 import { VideoCard } from './components/VideoCard';
 import { Footer } from './components/Footer';
-import { filterVideosByMembers, getVideoGroup, isOfficialH2HChannel, isOfficialShortsVideo, sortVideoItems, VIDEO_GROUPS } from './lib/videoData';
-import { Search, Film, Flame, Heart, Users, Youtube, Layers, Loader2, Database, AlertCircle, RefreshCw, Sparkles, Tv, Clock, History, TrendingUp, ArrowUpDown, Filter } from 'lucide-react';
+import {
+  filterVideosByMembers,
+  getVideoGroup,
+  isOfficialH2HChannel,
+  isOfficialShortsVideo,
+  sortVideoItems,
+  VIDEO_GROUPS,
+  FIVE_CATEGORIES,
+  classifyVideoGenre,
+} from './lib/videoData';
+import {
+  Search,
+  Film,
+  Flame,
+  Heart,
+  Users,
+  Youtube,
+  Layers,
+  Loader2,
+  Database,
+  AlertCircle,
+  RefreshCw,
+  Sparkles,
+  Tv,
+  Clock,
+  History,
+  TrendingUp,
+  ArrowUpDown,
+  Filter,
+} from 'lucide-react';
 
-export type FilterGroup = 'all' | VideoGroup;
+export type FilterGroup = 'all' | VideoCategory;
 
-/** Filter to ensure official Hearts2Hearts channel only includes Shorts (excluding MVs & full-length variety shows) */
-export const isSearchableVideo = (video: VideoItem): boolean => {
-  if (isOfficialH2HChannel(video.channel)) {
-    return isOfficialShortsVideo(video);
-  }
+/** Filter to ensure videos are valid (includes all 5 categories: MVs, Shorts, Stages, Originals, Others) */
+export const isSearchableVideo = (_video: VideoItem): boolean => {
   return true;
 };
 
@@ -40,7 +65,7 @@ export default function App() {
   // Member matching mode: 'including' (contains all selected) vs 'only' (strictly only selected)
   const [memberMatchMode, setMemberMatchMode] = useState<MemberMatchMode>('including');
 
-  // Video group filter: 'all' | 'shorts' | 'stage' | 'others'
+  // Video 5-category filter: 'all' | 'mv' | 'shorts' | 'stage' | 'original' | 'other'
   const [groupFilter, setGroupFilter] = useState<FilterGroup>('all');
 
   // Video sort order: 'new' | 'old' | 'popular'
@@ -113,17 +138,30 @@ export default function App() {
   }, [selectedMembers, videos, memberMatchMode]);
 
   const allCount = memberFilteredBase.length;
-  const officialCount = memberFilteredBase.filter((v) => (v.group || getVideoGroup(v)) === 'official').length;
-  const shortsCount = memberFilteredBase.filter((v) => (v.group || getVideoGroup(v)) === 'shorts').length;
-  const stageCount = memberFilteredBase.filter((v) => (v.group || getVideoGroup(v)) === 'stage').length;
-  const othersCount = memberFilteredBase.filter((v) => (v.group || getVideoGroup(v)) === 'others').length;
+  const mvCount = memberFilteredBase.filter(
+    (v) => (v.genre || classifyVideoGenre(v.title, v.description, v.channel, v.url, v.type)) === 'mv'
+  ).length;
+  const shortsCount = memberFilteredBase.filter(
+    (v) => (v.genre || classifyVideoGenre(v.title, v.description, v.channel, v.url, v.type)) === 'shorts'
+  ).length;
+  const stageCount = memberFilteredBase.filter(
+    (v) => (v.genre || classifyVideoGenre(v.title, v.description, v.channel, v.url, v.type)) === 'stage'
+  ).length;
+  const originalCount = memberFilteredBase.filter(
+    (v) => (v.genre || classifyVideoGenre(v.title, v.description, v.channel, v.url, v.type)) === 'original'
+  ).length;
+  const otherCount = memberFilteredBase.filter(
+    (v) => (v.genre || classifyVideoGenre(v.title, v.description, v.channel, v.url, v.type)) === 'other'
+  ).length;
 
-  // Final filtered list including group filter, search query, and sort order (new, old, popular)
+  // Final filtered list including 5-category filter, search query, and sort order (new, old, popular)
   const filteredVideos = useMemo(() => {
     const matches = memberFilteredBase.filter((video) => {
-      // 1. Group filter
-      const group = video.group || getVideoGroup(video);
-      if (groupFilter !== 'all' && group !== groupFilter) {
+      // 1. 5-Category filter
+      const genre =
+        video.genre ||
+        classifyVideoGenre(video.title, video.description, video.channel, video.url, video.type);
+      if (groupFilter !== 'all' && genre !== groupFilter) {
         return false;
       }
 
@@ -133,9 +171,12 @@ export default function App() {
         const matchesTitle = video.title.toLowerCase().includes(query);
         const matchesChannel = video.channel.toLowerCase().includes(query);
         const matchesDescription = video.description.toLowerCase().includes(query);
-        const groupInfo = VIDEO_GROUPS[group];
-        const matchesGroup = groupInfo?.label.toLowerCase().includes(query) || groupInfo?.shortLabel.toLowerCase().includes(query);
-        if (!matchesTitle && !matchesChannel && !matchesDescription && !matchesGroup) {
+        const catInfo = FIVE_CATEGORIES[genre];
+        const matchesCat =
+          catInfo?.label.toLowerCase().includes(query) ||
+          catInfo?.englishLabel.toLowerCase().includes(query) ||
+          catInfo?.shortLabel.toLowerCase().includes(query);
+        if (!matchesTitle && !matchesChannel && !matchesDescription && !matchesCat) {
           return false;
         }
       }
@@ -266,9 +307,9 @@ export default function App() {
 
         {/* 2. 影片分類群組切換（Filter Tabs）與排序／搜尋 */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-3 sm:p-4 shadow-2xs flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-          {/* 3 Groups Segmented Filter Tabs: 全部 / 官方 Shorts / 舞台與直拍 / 其他影片 */}
+          {/* 5 Distinct Categories Segmented Filter Tabs */}
           <div className="flex items-center gap-1 p-1 bg-slate-100/90 rounded-xl text-xs font-semibold overflow-x-auto no-scrollbar w-full xl:w-auto">
-            {/* 1. 全部 */}
+            {/* 1. 全部 (All) */}
             <button
               type="button"
               onClick={() => setGroupFilter('all')}
@@ -281,14 +322,34 @@ export default function App() {
             >
               <Layers className="w-3.5 h-3.5" />
               <span>全部</span>
-              {selectedMembers.length > 0 && !isLoading && (
+              {!isLoading && (
                 <span className="text-[11px] font-mono tabular-nums opacity-75">
                   ({allCount})
                 </span>
               )}
             </button>
 
-            {/* 2. 官方 Shorts */}
+            {/* 2. 官方 MV (Official Music Videos) */}
+            <button
+              type="button"
+              onClick={() => setGroupFilter('mv')}
+              aria-pressed={groupFilter === 'mv'}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                groupFilter === 'mv'
+                  ? 'bg-white text-rose-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Film className="w-3.5 h-3.5 text-rose-500" />
+              <span>官方 MV</span>
+              {!isLoading && (
+                <span className="text-[11px] font-mono tabular-nums opacity-75">
+                  ({mvCount})
+                </span>
+              )}
+            </button>
+
+            {/* 3. Shorts & 挑戰 (Shorts & Challenges) */}
             <button
               type="button"
               onClick={() => setGroupFilter('shorts')}
@@ -300,50 +361,70 @@ export default function App() {
               }`}
             >
               <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20" />
-              <span>官方 Shorts</span>
-              {selectedMembers.length > 0 && !isLoading && (
+              <span>Shorts & 挑戰</span>
+              {!isLoading && (
                 <span className="text-[11px] font-mono tabular-nums opacity-75">
                   ({shortsCount})
                 </span>
               )}
             </button>
 
-            {/* 3. 舞台與直拍 */}
+            {/* 4. 舞台表演 (Stage Performances) */}
             <button
               type="button"
               onClick={() => setGroupFilter('stage')}
               aria-pressed={groupFilter === 'stage'}
               className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 groupFilter === 'stage'
-                  ? 'bg-white text-indigo-600 shadow-xs'
+                  ? 'bg-white text-sky-600 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Tv className="w-3.5 h-3.5 text-indigo-500" />
-              <span>舞台與直拍</span>
-              {selectedMembers.length > 0 && !isLoading && (
+              <Tv className="w-3.5 h-3.5 text-sky-500" />
+              <span>舞台表演</span>
+              {!isLoading && (
                 <span className="text-[11px] font-mono tabular-nums opacity-75">
                   ({stageCount})
                 </span>
               )}
             </button>
 
-            {/* 4. 其他影片 */}
+            {/* 5. 自製團綜 (Original Content) */}
             <button
               type="button"
-              onClick={() => setGroupFilter('others')}
-              aria-pressed={groupFilter === 'others'}
+              onClick={() => setGroupFilter('original')}
+              aria-pressed={groupFilter === 'original'}
               className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
-                groupFilter === 'others'
-                  ? 'bg-white text-slate-900 shadow-xs'
+                groupFilter === 'original'
+                  ? 'bg-white text-emerald-600 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Film className="w-3.5 h-3.5 text-slate-500" />
-              <span>其他影片 (綜藝/專訪)</span>
-              {selectedMembers.length > 0 && !isLoading && (
+              <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+              <span>自製團綜</span>
+              {!isLoading && (
                 <span className="text-[11px] font-mono tabular-nums opacity-75">
-                  ({othersCount})
+                  ({originalCount})
+                </span>
+              )}
+            </button>
+
+            {/* 6. 其他官方影音 (Other Official / Semi-official) */}
+            <button
+              type="button"
+              onClick={() => setGroupFilter('other')}
+              aria-pressed={groupFilter === 'other'}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                groupFilter === 'other'
+                  ? 'bg-white text-purple-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-purple-500" />
+              <span>其他影音</span>
+              {!isLoading && (
+                <span className="text-[11px] font-mono tabular-nums opacity-75">
+                  ({otherCount})
                 </span>
               )}
             </button>
@@ -539,9 +620,9 @@ export default function App() {
                   </h4>
                   <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
                     {selectedMembers.length > 0 ? (
-                      <>所選成員 <strong>{selectedMembers.join(' + ')}</strong> 在「{groupFilter === 'all' ? '全部' : VIDEO_GROUPS[groupFilter]?.label || groupFilter}」分類下尚未有符合記錄，請嘗試切換分類、切換為包含模式或調整選取組合。</>
+                      <>所選成員 <strong>{selectedMembers.join(' + ')}</strong> 在「{groupFilter === 'all' ? '全部' : FIVE_CATEGORIES[groupFilter]?.label || groupFilter}」分類下尚未有符合記錄，請嘗試切換分類、切換為包含模式或調整選取組合。</>
                     ) : (
-                      <>在「{groupFilter === 'all' ? '全部' : VIDEO_GROUPS[groupFilter]?.label || groupFilter}」分類或目前關鍵字下查無影片，請嘗試清除關鍵字或切換分類。</>
+                      <>在「{groupFilter === 'all' ? '全部' : FIVE_CATEGORIES[groupFilter]?.label || groupFilter}」分類或目前關鍵字下查無影片，請嘗試清除關鍵字或切換分類。</>
                     )}
                   </p>
                   <div className="mt-4 flex items-center justify-center gap-2">
