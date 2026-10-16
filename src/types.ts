@@ -8,7 +8,6 @@ export type MemberId =
   | 'ian'
   | 'yeon';
 
-// 5 大精準影片分類代碼
 export type VideoCategory =
   | 'mv'
   | 'shorts'
@@ -31,16 +30,16 @@ export interface Member {
 export interface Video {
   id: string;
   title: string;
-  url?: string;
-  videoUrl?: string;
-  thumbnail?: string;
-  thumbnailUrl: string;
-  channel?: string;
-  type: VideoCategory | 'video';
   category: string;
-  published_at?: string;
   date: string;
   duration: string;
+  thumbnailUrl: string;
+  videoUrl?: string;
+  url?: string;
+  thumbnail?: string;
+  channel?: string;
+  type?: VideoCategory | 'video' | string;
+  published_at?: string;
   views: string;
   members: MemberId[];
   description?: string;
