@@ -11,7 +11,7 @@ export const CATEGORY_LABELS: Record<VideoCategory, string> = {
   other: 'Other Official / Semi-official Content'
 };
 
-export constORDERED_CATEGORIES = [
+export const ORDERED_CATEGORIES = [
   'All',
   CATEGORY_LABELS.mv,
   CATEGORY_LABELS.shorts,
@@ -222,7 +222,6 @@ export async function fetchVideosFromSupabase(): Promise<Video[]> {
   }
 }
 
-// 兼容 App.tsx 原有的 loadArchiveVideos 介面
 export async function loadArchiveVideos(): Promise<{
   videos: Video[];
   source: 'supabase' | 'fallback';
@@ -260,12 +259,10 @@ export async function loadArchiveVideos(): Promise<{
   }
 }
 
-// 固定返回 All + 你指定的 5 大分類
 export function getCategories(_videos?: Video[]): string[] {
   return ORDERED_CATEGORIES;
 }
 
-// 兼容 App.tsx 的成員 + 5 大分類 + 關鍵字搜尋過濾
 export function filterVideos(
   videos: Video[],
   options: {
