@@ -22,7 +22,6 @@ const SUPABASE_KEY = (
 const SYNC_MODE = process.env.SYNC_MODE || 'full_backfill';
 const DEBUT_DATE_ISO = '2025-01-01T00:00:00Z';
 
-// 1. 你指定的必抓 YouTube 播放清單 (清單內的片 100% 全部直接收錄)
 const TRACKED_PLAYLISTS = [
   {
     name: 'Hearts2Hearts Curated Playlist',
@@ -31,7 +30,6 @@ const TRACKED_PLAYLISTS = [
   }
 ];
 
-// 2. 8 位成員精確比對規則（使用正則邊界，防止將韓文 준비 當成 준，或將英文單字當成 ana/ian）
 const MEMBER_PATTERNS = {
   'Carmen': [/\bcarmen\b/i, /카르멘/],
   'Jiwoo': [/\bjiwoo\b/i, /지우/],
@@ -57,7 +55,59 @@ function detectMembers(text) {
   return matched.length > 0 ? matched : ALL_MEMBERS;
 }
 
-// 3. 嚴格檢查：外部電視台頻道的「影片標題 (Title)」必須明確包含 Hearts2Hearts 或 하츠투하츠
+// 自動將影片歸入 5 大類別：'mv' | 'shorts' | 'stage' | 'original' | 'other'
+function classifyVideoType(title = '', description = '', channelTitle = '', isShortsUrl = false) {
+  const t = String(title).toLowerCase();
+  const d = String(description).toLowerCase();
+  const c = String(channelTitle).toLowerCase();
+
+  // 1. Shorts & Challenges
+  if (
+    isShortsUrl ||
+    t.includes('#shorts') ||
+    /\bshorts\b/i.test(t) ||
+    t.includes('challenge') ||
+    t.includes('챌린지') ||
+    d.includes('#shorts')
+  ) {
+    return 'shorts';
+  }
+
+  // 2. Official Music Videos (MVs)
+  const isTeaserOrBehind =
+    /(teaser|티저|trailer|트레일러|behind|비하인드|making|메이킹|reaction|리액션|interview|인터뷰|recording|녹음|unboxing|언박싱|lyric|가사|cover|커버)/i.test(t);
+  if (
+    !isTeaserOrBehind &&
+    (/\bmv\b/i.test(t) ||
+      t.includes('m/v') ||
+      t.includes('music video') ||
+      t.includes('뮤직비디오') ||
+      t.includes('official video') ||
+      t.includes('track video'))
+  ) {
+    return 'mv';
+  }
+
+  // 3. Stage Performances
+  if (
+    /(sbskpop|inkigayo|kbs kpop|mbckpop|mnet|studio choom|the k-pop|all the k-pop|it's live)/i.test(c) ||
+    /(stage|fancam|직캠|facecam|페이스캠|인기가요|뮤직뱅크|음악중심|엠카운트다운|music bank|music core|m countdown|inkigayo|dance practice|안무|choreography|performance|퍼포먼스|showcase|쇼케이스|concert|콘서트|live clip|교차편집|원테이크|one take|fullcam|입덕직캠)/i.test(t)
+  ) {
+    return 'stage';
+  }
+
+  // 4. Original Content
+  if (
+    /(knowingbros|아는형님|런닝맨|jtbcentertainment|sbs entertainment)/i.test(c) ||
+    /(vlog|브이로그|\bep\.|\bepisode\b|reality|리얼리티|자컨|diary|다이어리|\blog\b|아는 형님|knowing bros|런닝맨|running man|아이돌 인간극장)/i.test(t)
+  ) {
+    return 'original';
+  }
+
+  // 5. Other Official / Semi-official Content
+  return 'other';
+}
+
 function isH2HRelated(title) {
   const titleText = String(title || '').toLowerCase();
   const groupKeywords = ['hearts2hearts', 'hearts 2 hearts', '하츠투하츠'];
@@ -106,7 +156,7 @@ async function saveVideoToSupabase(supabase, { videoId, title, description, publ
   if (title === 'Private video' || title === 'Deleted video') return false;
 
   const isShorts = `${title} ${description}`.toLowerCase().includes('#shorts') || `${title}`.toLowerCase().includes('shorts');
-  const type = isShorts ? 'shorts' : 'video';
+  const type = classifyVideoType(title, description, channelTitle, isShorts);
   const videoUrl = isShorts
     ? `https://www.youtube.com/shorts/${videoId}`
     : `https://www.youtube.com/watch?v=${videoId}`;
@@ -153,7 +203,7 @@ async function saveVideoToSupabase(supabase, { videoId, title, description, publ
     }
   }
 
-  console.log(`🎉 [新增入庫] [${pubDate}] [${channelTitle}] ${title}`);
+  console.log(`🎉 [新增入庫] [${type.toUpperCase()}] [${pubDate}] [${channelTitle}] ${title}`);
   return true;
 }
 
@@ -242,7 +292,6 @@ async function syncChannelSearch(supabase, channelId, channelName, maxPages) {
         const publishedAt = snippet.publishedAt || '';
         const channelTitle = snippet.channelTitle || channelName;
 
-        // 強制規定：電視台搜尋結果的「標題」必須有 Hearts2Hearts 或 하츠투하츠
         if (!isH2HRelated(title)) continue;
 
         const ok = await saveVideoToSupabase(supabase, { videoId, title, description, publishedAt, channelTitle });
@@ -277,12 +326,10 @@ async function main() {
 
   let totalAdded = 0;
 
-  // 第一部分：優先 100% 掃描你指定的 Playlist (最多翻 30 頁 = 1,500 條片)
   for (const pl of TRACKED_PLAYLISTS) {
     totalAdded += await syncPlaylistById(supabase, pl.playlistId, pl.name, 30, pl.skipKeywordFilter);
   }
 
-  // 第二部分：掃描 config/youtube-channels.json 內的官方與電視台頻道
   const channels = loadChannels();
   const officialMaxPages = SYNC_MODE === 'full_backfill' ? 20 : 2;
   const broadcastMaxPages = SYNC_MODE === 'full_backfill' ? 5 : 1;
@@ -322,6 +369,7 @@ if (require.main === module) {
 
 module.exports = {
   detectMembers,
+  classifyVideoType,
   isH2HRelated,
   loadChannels,
   resolveChannelId,
