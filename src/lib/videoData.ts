@@ -2,6 +2,8 @@ import { MemberId, Video, VideoCategory } from '../types';
 import { VIDEOS } from '../data/h2hData';
 import { supabase } from './supabase';
 
+export const VIDEOS_PER_PAGE = 12;
+
 // 你指定的 5 大官方分類完整名稱
 export const CATEGORY_LABELS: Record<VideoCategory, string> = {
   mv: 'Official Music Videos (MVs)',
@@ -34,7 +36,6 @@ export function classifyVideoGenre(
   const u = String(url || '').toLowerCase();
   const rt = String(rawType || '').toLowerCase();
 
-  // 如果資料庫已經存好 5 大分類代碼，優先採用
   if (rt === 'mv' || rt === 'stage' || rt === 'original' || rt === 'other') {
     return rt as VideoCategory;
   }
@@ -52,7 +53,7 @@ export function classifyVideoGenre(
     return 'shorts';
   }
 
-  // 2. Official Music Videos (MVs) (排除 Teaser、幕後花絮、Reaction、訪問)
+  // 2. Official Music Videos (MVs)
   const isTeaserOrBehind =
     /(teaser|티저|trailer|트레일러|behind|비하인드|making|메이킹|reaction|리액션|interview|인터뷰|recording|녹음|unboxing|언박싱|lyric|가사|cover|커버)/i.test(t);
 
@@ -68,7 +69,7 @@ export function classifyVideoGenre(
     return 'mv';
   }
 
-  // 3. Stage Performances (Music shows + Concerts + Special stages + Fancams + Dance Practice)
+  // 3. Stage Performances
   const isStageChannel =
     /(sbskpop|inkigayo|kbs kpop|mbckpop|mnet|studio choom|the k-pop|all the k-pop|it's live)/i.test(c);
   const isStageTitle =
@@ -78,7 +79,7 @@ export function classifyVideoGenre(
     return 'stage';
   }
 
-  // 4. Original Content (Vlogs, reality series, self-produced content, variety shows)
+  // 4. Original Content
   const isVarietyChannel =
     /(knowingbros|아는형님|런닝맨|jtbcentertainment|sbs entertainment)/i.test(c);
   const isOriginalTitle =
@@ -88,8 +89,19 @@ export function classifyVideoGenre(
     return 'original';
   }
 
-  // 5. Other Official / Semi-official Content (Behind-the-scenes, interviews, covers, lyric videos, teasers, etc.)
+  // 5. Other Official / Semi-official Content
   return 'other';
+}
+
+export function inferVideoCategory(row: any): string {
+  const genre = classifyVideoGenre(
+    row?.title,
+    row?.description,
+    row?.channel,
+    row?.url || row?.videoUrl,
+    row?.type || row?.category
+  );
+  return CATEGORY_LABELS[genre];
 }
 
 const NAME_TO_ID: Record<string, MemberId> = {
@@ -155,6 +167,8 @@ export function normalizeMembers(rawMembers: unknown, title = '', description = 
   return result.size > 0 ? Array.from(result) : ALL_MEMBER_IDS;
 }
 
+export const inferVideoMembers = normalizeMembers;
+
 export function extractYouTubeId(url: string = ''): string | null {
   const match = String(url || '').match(
     /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([a-zA-Z0-9_-]{11})/
@@ -163,18 +177,18 @@ export function extractYouTubeId(url: string = ''): string | null {
 }
 
 export function mapSupabaseRowToVideo(row: any): Video {
-  const title = row.title || 'Untitled Video';
-  const description = row.description || '';
-  const channel = row.channel || 'Hearts2Hearts';
-  const url = row.url || row.videoUrl || '';
+  const title = row?.title || 'Untitled Video';
+  const description = row?.description || '';
+  const channel = row?.channel || 'Hearts2Hearts';
+  const url = row?.url || row?.videoUrl || '';
   const ytId = extractYouTubeId(url);
   const fallbackThumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : '';
-  const thumbnail = row.thumbnail || row.thumbnailUrl || fallbackThumb;
+  const thumbnail = row?.thumbnail || row?.thumbnailUrl || fallbackThumb;
 
-  const genreType = classifyVideoGenre(title, description, channel, url, row.type);
+  const genreType = classifyVideoGenre(title, description, channel, url, row?.type);
 
   return {
-    id: String(row.id || ytId || Math.random()),
+    id: String(row?.id || ytId || Math.random()),
     title,
     url,
     videoUrl: url,
@@ -183,14 +197,16 @@ export function mapSupabaseRowToVideo(row: any): Video {
     channel,
     type: genreType,
     category: CATEGORY_LABELS[genreType],
-    published_at: row.published_at || row.date || '2025-02-24',
-    date: row.published_at || row.date || '2025-02-24',
-    duration: genreType === 'shorts' ? 'Shorts' : 'Video',
-    views: channel,
-    members: normalizeMembers(row.members, title, description),
+    published_at: row?.published_at || row?.date || '2025-02-24',
+    date: row?.published_at || row?.date || '2025-02-24',
+    duration: row?.duration || (genreType === 'shorts' ? 'Shorts' : 'Video'),
+    views: row?.views || channel,
+    members: normalizeMembers(row?.members, title, description),
     description
   };
 }
+
+export const mapSupabaseVideoRow = mapSupabaseRowToVideo;
 
 export function normalizeStaticVideos(videos: Video[] = VIDEOS): Video[] {
   return videos.map(v => {
@@ -265,14 +281,22 @@ export function getCategories(_videos?: Video[]): string[] {
 
 export function filterVideos(
   videos: Video[],
-  options: {
-    selectedMembers?: MemberId[];
-    selectedCategory?: string;
-    searchQuery?: string;
-  }
+  optionsOrMembers:
+    | {
+        selectedMembers?: MemberId[];
+        selectedCategory?: string;
+        searchQuery?: string;
+      }
+    | MemberId[] = {},
+  legacyCategory: string = 'All',
+  legacySearch: string = ''
 ): Video[] {
-  const { selectedMembers = [], selectedCategory = 'All', searchQuery = '' } = options;
-  const q = searchQuery.trim().toLowerCase();
+  const isArrayArg = Array.isArray(optionsOrMembers);
+  const selectedMembers = isArrayArg ? optionsOrMembers : optionsOrMembers.selectedMembers || [];
+  const selectedCategory = isArrayArg ? legacyCategory : optionsOrMembers.selectedCategory || 'All';
+  const searchQuery = isArrayArg ? legacySearch : optionsOrMembers.searchQuery || '';
+
+  const q = String(searchQuery || '').trim().toLowerCase();
 
   return videos.filter(video => {
     const matchesCategory =
@@ -299,21 +323,31 @@ export function filterVideos(
 export function paginateVideos(
   videos: Video[],
   currentPage: number = 1,
-  pageSize: number = 12
+  pageSize: number = VIDEOS_PER_PAGE
 ): {
   items: Video[];
+  videos: Video[];
+  paginatedVideos: Video[];
   currentPage: number;
   totalPages: number;
   totalItems: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 } {
   const totalItems = videos.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const safePage = Math.min(Math.max(1, currentPage), totalPages);
   const start = (safePage - 1) * pageSize;
+  const sliced = videos.slice(start, start + pageSize);
+
   return {
-    items: videos.slice(start, start + pageSize),
+    items: sliced,
+    videos: sliced,
+    paginatedVideos: sliced,
     currentPage: safePage,
     totalPages,
-    totalItems
+    totalItems,
+    hasNextPage: safePage < totalPages,
+    hasPrevPage: safePage > 1
   };
 }
