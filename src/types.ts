@@ -4,51 +4,92 @@ export type MemberId =
   | 'yuha'
   | 'stella'
   | 'juun'
+  | 'a-na'
   | 'ana'
   | 'ian'
+  | 'ye-on'
   | 'yeon';
 
-export type VideoCategory =
-  | 'mv'
+export type MemberName =
+  | 'Carmen'
+  | 'Jiwoo'
+  | 'Yuha'
+  | 'Stella'
+  | 'Juun'
+  | 'A-na'
+  | 'Ian'
+  | 'Ye-on';
+
+export type MemberMatchMode = 'AND' | 'OR' | 'and' | 'or';
+
+export type SortOrder = 'newest' | 'oldest' | 'popular' | 'views';
+
+export type VideoType =
+  | 'video'
   | 'shorts'
+  | 'mv'
   | 'stage'
   | 'original'
-  | 'other';
+  | 'other'
+  | string;
+
+// 你指定的 5 大分類（同時兼容舊測試的標籤）
+export type VideoGroup =
+  | 'All'
+  | 'Official Music Videos (MVs)'
+  | 'Shorts & Challenges'
+  | 'Stage Performances'
+  | 'Original Content'
+  | 'Other Official / Semi-official Content'
+  | 'Official H2H'
+  | 'Shorts'
+  | 'External Channels'
+  | string;
+
+export type VideoCategory = VideoGroup;
 
 export interface Member {
   id: MemberId;
-  name: string;
+  name: MemberName | string;
   koreanName: string;
-  birthYear: number;
+  birthYear?: number;
+  birthday?: string;
+  mbti?: string;
   role: string;
-  emoji: string;
+  charm?: string;
+  bio?: string;
+  emoji?: string;
   imageUrl: string;
+  avatarBg?: string;
   color: string;
-  description: string;
+  description?: string;
 }
 
-export interface Video {
+export interface VideoItem {
   id: string;
   title: string;
   category: string;
   date: string;
+  publishedAt?: string;
+  published_at?: string;
   duration: string;
   thumbnailUrl: string;
-  videoUrl?: string;
-  url?: string;
   thumbnail?: string;
+  videoUrl: string;
+  url?: string;
   channel?: string;
-  type?: VideoCategory | 'video' | string;
-  published_at?: string;
+  type?: VideoType;
   views: string;
-  members: MemberId[];
+  members: (MemberName | MemberId | string)[];
   description?: string;
 }
+
+export type Video = VideoItem;
 
 export interface Pairing {
   id: string;
   names: string;
-  members: [MemberId, MemberId];
+  members: [MemberName | MemberId | string, MemberName | MemberId | string];
   chemistry: string;
   recommendedVideoIds: string[];
 }
