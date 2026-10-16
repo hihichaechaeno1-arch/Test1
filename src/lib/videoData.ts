@@ -2,14 +2,23 @@ import { MemberId, Video, VideoCategory } from '../types';
 import { VIDEOS } from '../data/h2hData';
 import { supabase } from './supabase';
 
-// 5 大類別顯示名稱對照表
+// 你指定的 5 大官方分類完整名稱
 export const CATEGORY_LABELS: Record<VideoCategory, string> = {
-  mv: 'Official MVs',
+  mv: 'Official Music Videos (MVs)',
   shorts: 'Shorts & Challenges',
   stage: 'Stage Performances',
   original: 'Original Content',
-  other: 'Other Official Content'
+  other: 'Other Official / Semi-official Content'
 };
+
+export constORDERED_CATEGORIES = [
+  'All',
+  CATEGORY_LABELS.mv,
+  CATEGORY_LABELS.shorts,
+  CATEGORY_LABELS.stage,
+  CATEGORY_LABELS.original,
+  CATEGORY_LABELS.other
+];
 
 // 智能判斷影片屬於 5 大類別中的哪一類
 export function classifyVideoGenre(
@@ -19,13 +28,13 @@ export function classifyVideoGenre(
   url: string = '',
   rawType: string = ''
 ): VideoCategory {
-  const t = title.toLowerCase();
-  const d = description.toLowerCase();
-  const c = channel.toLowerCase();
-  const u = url.toLowerCase();
-  const rt = rawType.toLowerCase();
+  const t = String(title || '').toLowerCase();
+  const d = String(description || '').toLowerCase();
+  const c = String(channel || '').toLowerCase();
+  const u = String(url || '').toLowerCase();
+  const rt = String(rawType || '').toLowerCase();
 
-  // 如果資料庫已經存好 5 大分類代碼，直接採用
+  // 如果資料庫已經存好 5 大分類代碼，優先採用
   if (rt === 'mv' || rt === 'stage' || rt === 'original' || rt === 'other') {
     return rt as VideoCategory;
   }
@@ -43,9 +52,9 @@ export function classifyVideoGenre(
     return 'shorts';
   }
 
-  // 2. Official Music Videos (MVs) (排除 Teaser、幕後花絮、Reaction)
+  // 2. Official Music Videos (MVs) (排除 Teaser、幕後花絮、Reaction、訪問)
   const isTeaserOrBehind =
-    /(teaser|티저|trailer|트레일러|behind|비하인드|making|메이킹|reaction|리액션|interview|인터뷰|recording|녹음|unboxing|언박싱)/i.test(t);
+    /(teaser|티저|trailer|트레일러|behind|비하인드|making|메이킹|reaction|리액션|interview|인터뷰|recording|녹음|unboxing|언박싱|lyric|가사|cover|커버)/i.test(t);
 
   if (
     !isTeaserOrBehind &&
@@ -59,7 +68,7 @@ export function classifyVideoGenre(
     return 'mv';
   }
 
-  // 3. Stage Performances (音樂節目、演唱會、特別舞台、直拍、練習室)
+  // 3. Stage Performances (Music shows + Concerts + Special stages + Fancams + Dance Practice)
   const isStageChannel =
     /(sbskpop|inkigayo|kbs kpop|mbckpop|mnet|studio choom|the k-pop|all the k-pop|it's live)/i.test(c);
   const isStageTitle =
@@ -69,7 +78,7 @@ export function classifyVideoGenre(
     return 'stage';
   }
 
-  // 4. Original Content (Vlogs、團綜、自製內容、大型綜藝)
+  // 4. Original Content (Vlogs, reality series, self-produced content, variety shows)
   const isVarietyChannel =
     /(knowingbros|아는형님|런닝맨|jtbcentertainment|sbs entertainment)/i.test(c);
   const isOriginalTitle =
@@ -129,15 +138,17 @@ export function normalizeMembers(rawMembers: unknown, title = '', description = 
   }
 
   if (result.size === 0 || result.size === ALL_MEMBER_IDS.length) {
-    const text = `${title} ${description}`.toLowerCase();
+    const text = `${title} ${description}`;
     const detected = new Set<MemberId>();
-    for (const [alias, id] of Object.entries(NAME_TO_ID)) {
-      if (alias.length <= 3 && /^[a-z]+\$/.test(alias)) {
-        if (new RegExp(`\\b${alias}\\b`, 'i').test(text)) detected.add(id);
-      } else if (text.includes(alias)) {
-        detected.add(id);
-      }
-    }
+    if (/\bcarmen\b/i.test(text) || /카르멘/.test(text)) detected.add('carmen');
+    if (/\bjiwoo\b/i.test(text) || /지우/.test(text)) detected.add('jiwoo');
+    if (/\byuha\b/i.test(text) || /유하/.test(text)) detected.add('yuha');
+    if (/\bstella\b/i.test(text) || /스텔라/.test(text)) detected.add('stella');
+    if (/\bjuun\b/i.test(text) || /(?<![가-힣])준(?![가-힣])/.test(text)) detected.add('juun');
+    if (/\ba-na\b/i.test(text) || /에이나/.test(text)) detected.add('ana');
+    if (/\bian\b/i.test(text) || /이안/.test(text)) detected.add('ian');
+    if (/\bye-on\b/i.test(text) || /예온/.test(text)) detected.add('yeon');
+
     if (detected.size > 0) return Array.from(detected);
   }
 
@@ -145,7 +156,9 @@ export function normalizeMembers(rawMembers: unknown, title = '', description = 
 }
 
 export function extractYouTubeId(url: string = ''): string | null {
-  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([a-zA-Z0-9_-]{11})/);
+  const match = String(url || '').match(
+    /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([a-zA-Z0-9_-]{11})/
+  );
   return match ? match[1] : null;
 }
 
@@ -172,15 +185,27 @@ export function mapSupabaseRowToVideo(row: any): Video {
     category: CATEGORY_LABELS[genreType],
     published_at: row.published_at || row.date || '2025-02-24',
     date: row.published_at || row.date || '2025-02-24',
-    duration: genreType === 'shorts' ? '0:45' : '3:30',
+    duration: genreType === 'shorts' ? 'Shorts' : 'Video',
     views: channel,
     members: normalizeMembers(row.members, title, description),
     description
   };
 }
 
+export function normalizeStaticVideos(videos: Video[] = VIDEOS): Video[] {
+  return videos.map(v => {
+    const genreType = classifyVideoGenre(v.title, v.description, v.channel, v.videoUrl || v.url, v.type);
+    return {
+      ...v,
+      type: genreType,
+      category: CATEGORY_LABELS[genreType]
+    };
+  });
+}
+
 export async function fetchVideosFromSupabase(): Promise<Video[]> {
   try {
+    if (!supabase) return normalizeStaticVideos(VIDEOS);
     const { data, error } = await supabase
       .from('videos')
       .select('*')
@@ -188,14 +213,110 @@ export async function fetchVideosFromSupabase(): Promise<Video[]> {
       .limit(2000);
 
     if (error || !data || data.length === 0) {
-      return VIDEOS.map(v => ({
-        ...v,
-        type: classifyVideoGenre(v.title, v.description, v.channel, v.videoUrl, v.type)
-      }));
+      return normalizeStaticVideos(VIDEOS);
     }
 
     return data.map(mapSupabaseRowToVideo);
   } catch {
-    return VIDEOS;
+    return normalizeStaticVideos(VIDEOS);
   }
+}
+
+// 兼容 App.tsx 原有的 loadArchiveVideos 介面
+export async function loadArchiveVideos(): Promise<{
+  videos: Video[];
+  source: 'supabase' | 'fallback';
+  error: string | null;
+}> {
+  try {
+    if (!supabase) {
+      return { videos: normalizeStaticVideos(VIDEOS), source: 'fallback', error: null };
+    }
+    const { data, error } = await supabase
+      .from('videos')
+      .select('*')
+      .order('published_at', { ascending: false })
+      .limit(2000);
+
+    if (error) {
+      return { videos: normalizeStaticVideos(VIDEOS), source: 'fallback', error: error.message };
+    }
+
+    if (!data || data.length === 0) {
+      return { videos: normalizeStaticVideos(VIDEOS), source: 'fallback', error: null };
+    }
+
+    return {
+      videos: data.map(mapSupabaseRowToVideo),
+      source: 'supabase',
+      error: null
+    };
+  } catch (err: any) {
+    return {
+      videos: normalizeStaticVideos(VIDEOS),
+      source: 'fallback',
+      error: err?.message || 'Failed to load videos'
+    };
+  }
+}
+
+// 固定返回 All + 你指定的 5 大分類
+export function getCategories(_videos?: Video[]): string[] {
+  return ORDERED_CATEGORIES;
+}
+
+// 兼容 App.tsx 的成員 + 5 大分類 + 關鍵字搜尋過濾
+export function filterVideos(
+  videos: Video[],
+  options: {
+    selectedMembers?: MemberId[];
+    selectedCategory?: string;
+    searchQuery?: string;
+  }
+): Video[] {
+  const { selectedMembers = [], selectedCategory = 'All', searchQuery = '' } = options;
+  const q = searchQuery.trim().toLowerCase();
+
+  return videos.filter(video => {
+    const matchesCategory =
+      !selectedCategory ||
+      selectedCategory === 'All' ||
+      video.category === selectedCategory ||
+      CATEGORY_LABELS[video.type as VideoCategory] === selectedCategory;
+
+    const matchesMembers =
+      selectedMembers.length === 0 ||
+      selectedMembers.every(m => video.members.includes(m));
+
+    const matchesSearch =
+      !q ||
+      video.title.toLowerCase().includes(q) ||
+      (video.channel || '').toLowerCase().includes(q) ||
+      (video.description || '').toLowerCase().includes(q) ||
+      video.category.toLowerCase().includes(q);
+
+    return matchesCategory && matchesMembers && matchesSearch;
+  });
+}
+
+export function paginateVideos(
+  videos: Video[],
+  currentPage: number = 1,
+  pageSize: number = 12
+): {
+  items: Video[];
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+} {
+  const totalItems = videos.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  const start = (safePage - 1) * pageSize;
+  return {
+    items: videos.slice(start, start + pageSize),
+    currentPage: safePage,
+    totalPages,
+    totalItems
+  };
 }
