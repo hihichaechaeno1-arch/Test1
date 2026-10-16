@@ -1,19 +1,22 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import {
   MemberMatchMode,
   MemberName,
   SortOrder,
-  VideoCategory,
   VideoGroup,
   VideoItem,
-  VideoType,
+  VideoType
 } from '../types';
 
-export const VALID_MEMBERS: MemberName[] = [
+export const VIDEO_GROUPS: VideoGroup[] = [
+  'All',
+  'Official Music Videos (MVs)',
+  'Shorts & Challenges',
+  'Stage Performances',
+  'Original Content',
+  'Other Official / Semi-official Content'
+];
+
+export const ALL_MEMBER_NAMES: MemberName[] = [
   'Carmen',
   'Jiwoo',
   'Yuha',
@@ -21,10 +24,8 @@ export const VALID_MEMBERS: MemberName[] = [
   'Juun',
   'A-na',
   'Ian',
-  'Ye-on',
+  'Ye-on'
 ];
-
-export const ALL_MEMBER_NAMES: MemberName[] = VALID_MEMBERS;
 
 const MEMBER_ALIAS_MAP: Record<string, MemberName> = {
   carmen: 'Carmen',
@@ -41,61 +42,34 @@ const MEMBER_ALIAS_MAP: Record<string, MemberName> = {
   ana: 'A-na',
   '에이나': 'A-na',
   '아나': 'A-na',
-  'a_na': 'A-na',
   ian: 'Ian',
   '이안': 'Ian',
   'ye-on': 'Ye-on',
   yeon: 'Ye-on',
-  'ye_on': 'Ye-on',
-  '예온': 'Ye-on',
+  '예온': 'Ye-on'
 };
 
-export function normalizeMemberName(name: unknown): MemberName | null {
-  if (typeof name !== 'string') return null;
-  const clean = name.trim().toLowerCase();
-  return MEMBER_ALIAS_MAP[clean] || null;
-}
+// 嚴格正則表達式：避免英文短字 (例如 ana / ian) 誤判其他英文字，或韓文 준 誤判 준비
+const MEMBER_DETECT_RULES: { member: MemberName; patterns: RegExp[] }[] = [
+  { member: 'Carmen', patterns: [/\bcarmen\b/i, /카르멘/] },
+  { member: 'Jiwoo', patterns: [/\bjiwoo\b/i, /지우/] },
+  { member: 'Yuha', patterns: [/\byuha\b/i, /유하/] },
+  { member: 'Stella', patterns: [/\bstella\b/i, /스텔라/] },
+  { member: 'Juun', patterns: [/\bjuun\b/i, /(?<![가-힣])준(?![가-힣])/] },
+  { member: 'A-na', patterns: [/\ba-na\b/i, /\bana\b/i, /에이나/] },
+  { member: 'Ian', patterns: [/\bian\b/i, /이안/] },
+  { member: 'Ye-on', patterns: [/\bye-on\b/i, /\byeon\b/i, /예온/] }
+];
 
-export function normalizeMembers(
-  rawMembers: unknown,
-  title: string = '',
-  description: string = ''
-): MemberName[] {
-  const matched = new Set<MemberName>();
-
-  if (Array.isArray(rawMembers)) {
-    for (const m of rawMembers) {
-      const normalized = normalizeMemberName(m);
-      if (normalized) {
-        matched.add(normalized);
-      }
+export function detectMembersFromText(text: string = ''): MemberName[] {
+  if (!text) return [];
+  const found = new Set<MemberName>();
+  for (const rule of MEMBER_DETECT_RULES) {
+    if (rule.patterns.some(regex => regex.test(text))) {
+      found.add(rule.member);
     }
   }
-
-  // If no members directly specified or all members, inspect text
-  if (matched.size === 0) {
-    const text = `${title} ${description}`.toLowerCase();
-    if (/\bcarmen\b/i.test(text) || /카르멘/.test(text)) matched.add('Carmen');
-    if (/\bjiwoo\b/i.test(text) || /지우/.test(text)) matched.add('Jiwoo');
-    if (/\byuha\b/i.test(text) || /유하/.test(text)) matched.add('Yuha');
-    if (/\bstella\b/i.test(text) || /스텔라/.test(text)) matched.add('Stella');
-    if (/\bjuun\b/i.test(text) || /(?<![가-힣])준(?![가-힣])/.test(text)) matched.add('Juun');
-    if (/\ba[-_]?na\b/i.test(text) || /에이나/.test(text) || /아나/.test(text)) matched.add('A-na');
-    if (/\bian\b/i.test(text) || /이안/.test(text)) matched.add('Ian');
-    if (/\bye[-_]?on\b/i.test(text) || /예온/.test(text)) matched.add('Ye-on');
-  }
-
-  return Array.from(matched);
-}
-
-export const inferVideoMembers = normalizeMembers;
-
-export function extractYouTubeId(url: string = ''): string | null {
-  if (!url || typeof url !== 'string') return null;
-  const match = url.match(
-    /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/))([a-zA-Z0-9_-]{11})/
-  );
-  return match ? match[1] : null;
+  return Array.from(found);
 }
 
 export function isOfficialH2HChannel(channel: string = ''): boolean {
@@ -104,10 +78,8 @@ export function isOfficialH2HChannel(channel: string = ''): boolean {
     c.includes('hearts2hearts') ||
     c.includes('hearts 2 hearts') ||
     c.includes('하츠투하츠') ||
-    c.includes('h2h') ||
     c === 'smtown' ||
-    c === 'official' ||
-    c.includes('官方')
+    c === 'official'
   );
 }
 
@@ -118,493 +90,267 @@ export function isOfficialShortsVideo(video: Partial<VideoItem>): boolean {
   const duration = String(video?.duration || '').toLowerCase();
   const category = String(video?.category || '').toLowerCase();
 
+  // 如果時長係幾分鐘嘅正片（例如 03:15），就算簡介有寫 #shorts 都唔當係 Shorts
+  const isLongDuration = /^[2-9]:\d{2}|^\d{2}:\d{2}/.test(duration);
+  if (isLongDuration && !url.includes('/shorts/')) {
+    return false;
+  }
+
   return (
     type === 'shorts' ||
     url.includes('/shorts/') ||
     title.includes('#shorts') ||
     /\bshorts\b/i.test(title) ||
-    title.includes('#hearts2hearts') ||
-    title.includes('#하츠투하츠') ||
-    title.includes('#h2h') ||
     title.includes('challenge') ||
     title.includes('챌린지') ||
-    title.includes('手勢') ||
     duration === 'shorts' ||
-    category === 'shorts'
+    category === 'shorts' ||
+    category === 'shorts & challenges'
   );
 }
 
-/**
- * 4 distinct groups for tests and categorization:
- * 1. official: Official Hearts2Hearts channel long-form videos
- * 2. shorts: Official Shorts
- * 3. stage: Stage Performances & Fancams
- * 4. others: External channels & varieties
- */
+// 高精準度 5 大分類引擎
 export function getVideoGroup(video: Partial<VideoItem>): VideoGroup {
-  const channel = String(video?.channel || '').toLowerCase();
   const title = String(video?.title || '').toLowerCase();
-  const isH2H = isOfficialH2HChannel(channel);
+  const desc = String(video?.description || '').toLowerCase();
+  const channel = String(video?.channel || '').toLowerCase();
+  const rawType = String(video?.type || '').toLowerCase();
+  const rawCat = String(video?.category || '');
 
-  if (isH2H) {
-    if (isOfficialShortsVideo(video)) {
-      return 'shorts';
-    }
-    return 'official';
+  // 1. 最優先檢查 Shorts & Challenges
+  if (isOfficialShortsVideo(video) || (desc.includes('#shorts') && !title.includes('mv') && !title.includes('stage'))) {
+    return 'Shorts & Challenges';
   }
 
-  const isStageChannel =
-    /(sbskpop|inkigayo|kbs kpop|mbckpop|mnet|studio choom|the k-pop|all the k-pop|it's live|m2)/i.test(
-      channel
-    );
-  const isStageTitle =
-    /(stage|fancam|직캠|facecam|페이스캠|인기가요|뮤직뱅크|music bank|음악중심|music core|엠카운트다운|m countdown|inkigayo|dance practice|안무|choreography|performance|퍼포먼스|showcase|쇼케이스|concert|콘서트|live clip|교차편집|원테이크|one take|fullcam|입덕직캠|be original|relay dance|접력무|接力舞)/i.test(
+  // 2. Official Music Videos (MVs) (嚴格排除 Teaser / Behind / Reaction / Fancam / Stage)
+  const isNotPureMv =
+    /(teaser|티저|trailer|트레일러|behind|비하인드|making|메이킹|reaction|리액션|interview|인터뷰|recording|녹음|unboxing|언박싱|lyric|가사|cover|커버|fancam|직캠|facecam|페이스캠|stage|inkigayo|인기가요|뮤직뱅크|음악중심|엠카운트다운|dance practice|안무)/i.test(
       title
     );
 
-  if (isStageChannel || isStageTitle) {
-    return 'stage';
+  if (
+    !isNotPureMv &&
+    (rawType === 'mv' ||
+      /\bmv\b/i.test(title) ||
+      title.includes('m/v') ||
+      title.includes('music video') ||
+      title.includes('뮤직비디오') ||
+      rawCat === 'Official Music Videos (MVs)')
+  ) {
+    return 'Official Music Videos (MVs)';
   }
 
-  return 'others';
-}
-
-/**
- * Classify videos into the 5 core user categories:
- * 1. mv: Official Music Videos (MVs)
- * 2. shorts: Shorts & Challenges
- * 3. stage: Stage Performances (Music shows + Concerts + Special stages)
- * 4. original: Original Content (Vlogs, reality series, self-produced content)
- * 5. other: Other Official / Semi-official Content (Behind-the-scenes, interviews, covers, lyric videos, teasers)
- */
-export function classifyVideoGenre(
-  title: string = '',
-  description: string = '',
-  channel: string = '',
-  url: string = '',
-  type: string = ''
-): 'mv' | 'shorts' | 'stage' | 'original' | 'other' {
-  const t = String(title || '').toLowerCase();
-  const d = String(description || '').toLowerCase();
-  const c = String(channel || '').toLowerCase();
-  const u = String(url || '').toLowerCase();
-  const tp = String(type || '').toLowerCase();
-
-  // 1. Teaser, behind, making, unboxing, interview, covers, lyrics are 'other' (even if title contains MV)
-  const isTeaserOrBehind =
-    /(teaser|티저|trailer|트레일러|behind|비하인드|bh2nd|making|메이킹|reaction|리액션|interview|인터뷰|recording|녹음|unboxing|언박싱|lyric|가사|cover|커버|greeting|인사)/i.test(
-      t
-    );
-
-  if (isTeaserOrBehind) {
-    return 'other';
-  }
-
-  // 2. Shorts & Challenges
-  const isShorts =
-    tp === 'shorts' ||
-    u.includes('/shorts/') ||
-    t.includes('#shorts') ||
-    d.includes('#shorts') ||
-    t.includes('challenge') ||
-    t.includes('챌린지') ||
-    t.includes('手勢') ||
-    (t.includes('#hearts2hearts') && t.includes('#h2h')) ||
-    (t.includes('#하츠투하츠') && t.includes('#h2h'));
-
-  if (isShorts) {
-    return 'shorts';
-  }
-
-  // 3. Official Music Videos (MVs)
-  const isMvTitle =
-    tp === 'mv' ||
-    (/\bmv\b/i.test(t) ||
-      t.includes('m/v') ||
-      t.includes('music video') ||
-      t.includes('뮤직비디오') ||
-      t.includes('official video') ||
-      t.includes('track video'));
-
-  if (isMvTitle) {
-    return 'mv';
-  }
-
-  // 4. Stage Performances (Music shows, concerts, fancams, special stages)
+  // 3. Stage Performances (打歌舞台、直拍 Fancam、Facecam、Dance Practice、Showcase、Concert)
   const isStageChannel =
-    /(sbskpop|inkigayo|kbs kpop|mbckpop|mnet|studio choom|the k-pop|all the k-pop|it's live|m2)/i.test(
-      c
+    /(sbskpop|inkigayo|kbs kpop|mbckpop|mnet|studio choom|the k-pop|all the k-pop|it's live)/i.test(
+      channel
     );
   const isStageTitle =
-    /(stage|fancam|직캠|facecam|페이스캠|인기가요|뮤직뱅크|music bank|음악중심|music core|엠카운트다운|m countdown|inkigayo|dance practice|안무|choreography|performance|퍼포먼스|showcase|쇼케이스|concert|콘서트|live clip|교차편집|원테이크|one take|fullcam|입덕직캠|be original|가요대전)/i.test(
-      t
+    /(stage|fancam|직캠|facecam|페이스캠|인기가요|뮤직뱅크|음악중심|엠카운트다운|music bank|music core|m countdown|inkigayo|dance practice|안무|choreography|performance|퍼포먼스|showcase|쇼케이스|concert|콘서트|live clip|교차편집|원테이크|one take|fullcam|입덕직캠|가요대전|무대)/i.test(
+      title
     );
+  const isBehindOrVlog = /(behind|비하인드|making|메이킹|vlog|브이로그)/i.test(title);
 
-  if (tp === 'stage' || isStageChannel || isStageTitle) {
-    return 'stage';
+  if (!isBehindOrVlog && (rawType === 'stage' || isStageChannel || isStageTitle)) {
+    return 'Stage Performances';
   }
 
-  // 5. Original Content (Vlogs, reality, self-produced)
+  // 4. Original Content (Vlog、團綜、真人騷、電台/綜藝節目)
   const isVarietyChannel =
-    /(knowingbros|아는형님|런닝맨|running man|jtbcentertainment)/i.test(c);
+    /(knowingbros|아는형님|런닝맨|jtbcentertainment|sbs entertainment)/i.test(channel);
   const isOriginalTitle =
-    /(vlog|브이로그|\bep\.|\bepisode\b|둘셋하투하|자컨|reality|리얼리티|diary|다이어리|아는 형님|knowing bros|런닝맨|running man|아이돌 인간극장)/i.test(
-      t
+    /(vlog|브이로그|\bep\.\d|\bep\s?\d|\bepisode\b|reality|리얼리티|자컨|diary|다이어리|\blog\b|아는 형님|knowing bros|런닝맨|running man|아이돌 인간극장)/i.test(
+      title
     );
 
-  if (tp === 'original' || isVarietyChannel || isOriginalTitle) {
-    return 'original';
+  if (rawType === 'original' || isVarietyChannel || isOriginalTitle) {
+    return 'Original Content';
   }
 
-  // 6. Default to other
-  return 'other';
+  // 5. Other Official / Semi-official Content (Teasers, Behind-the-scenes, Interviews, Covers, Lyrics, etc.)
+  return 'Other Official / Semi-official Content';
 }
 
-export const FIVE_CATEGORIES: Record<
-  string,
-  {
-    id: 'mv' | 'shorts' | 'stage' | 'original' | 'other';
-    label: string;
-    englishLabel: string;
-    shortLabel: string;
-    description: string;
-  }
-> = {
-  mv: {
-    id: 'mv',
-    label: '官方 MV',
-    englishLabel: 'Official Music Videos (MVs)',
-    shortLabel: 'MV',
-    description: 'Official Music Videos',
-  },
-  shorts: {
-    id: 'shorts',
-    label: 'Shorts & 挑戰',
-    englishLabel: 'Shorts & Challenges',
-    shortLabel: 'Shorts',
-    description: 'Shorts & Challenges',
-  },
-  stage: {
-    id: 'stage',
-    label: '舞台表演',
-    englishLabel: 'Stage Performances',
-    shortLabel: '舞台',
-    description: 'Music shows, concerts & special stages',
-  },
-  original: {
-    id: 'original',
-    label: '自製團綜',
-    englishLabel: 'Original Content',
-    shortLabel: '團綜',
-    description: 'Vlogs, reality series & self-produced content',
-  },
-  other: {
-    id: 'other',
-    label: '其他影音',
-    englishLabel: 'Other Official / Semi-official Content',
-    shortLabel: '其他',
-    description: 'Behind-the-scenes, interviews, covers, lyric videos, teasers',
-  },
-};
-
-export const VIDEO_GROUPS: Record<
-  string,
-  {
-    id: string;
-    label: string;
-    shortLabel: string;
-    description: string;
-  }
-> = {
-  all: {
-    id: 'all',
-    label: '全部影片',
-    shortLabel: '全部',
-    description: '顯示所有影片',
-  },
-  mv: {
-    id: 'mv',
-    label: '官方 MV',
-    shortLabel: 'MV',
-    description: 'Official Music Videos',
-  },
-  shorts: {
-    id: 'shorts',
-    label: 'Shorts & 挑戰',
-    shortLabel: 'Shorts',
-    description: 'Shorts & Challenges',
-  },
-  stage: {
-    id: 'stage',
-    label: '舞台表演',
-    shortLabel: '舞台',
-    description: 'Stage Performances',
-  },
-  original: {
-    id: 'original',
-    label: '自製團綜',
-    shortLabel: '團綜',
-    description: 'Original Content',
-  },
-  other: {
-    id: 'other',
-    label: '其他影音',
-    shortLabel: '其他',
-    description: 'Other Official / Semi-official Content',
-  },
-  official: {
-    id: 'official',
-    label: '官方影片',
-    shortLabel: '官方',
-    description: 'Official Hearts2Hearts content',
-  },
-  others: {
-    id: 'others',
-    label: '外部影音',
-    shortLabel: '外部',
-    description: 'External channels & varieties',
-  },
-};
-
-export function parseViewsCount(viewsStr: unknown): number {
-  if (typeof viewsStr === 'number') {
-    return isNaN(viewsStr) ? 0 : viewsStr;
-  }
-  if (!viewsStr || typeof viewsStr !== 'string') return 0;
-  const clean = viewsStr.trim().replace(/,/g, '');
-  if (!clean) return 0;
-
-  const metricMatch = clean.match(/^([\d.]+)\s*([KMB])/i);
-  if (metricMatch) {
-    const num = parseFloat(metricMatch[1]);
-    const unit = metricMatch[2].toUpperCase();
-    if (unit === 'B') return Math.round(num * 1_000_000_000);
-    if (unit === 'M') return Math.round(num * 1_000_000);
-    if (unit === 'K') return Math.round(num * 1_000);
+// 精準成員正規化：優先檢查標題，解決「單人直拍被標成全體 8 人」的問題！
+export function normalizeMembers(
+  rawMembers: unknown,
+  title: string = '',
+  description: string = ''
+): MemberName[] {
+  // 第一優先：檢查影片「標題 (Title)」有冇明確寫出特定成員名（例如 직캠 / 個人預告 / 小分隊 Challenge）
+  const titleDetected = detectMembersFromText(title);
+  if (titleDetected.length > 0 && titleDetected.length < ALL_MEMBER_NAMES.length) {
+    return titleDetected;
   }
 
-  const digitsMatch = clean.match(/(\d+)/);
-  if (digitsMatch) {
-    return parseInt(digitsMatch[1], 10) || 0;
-  }
-
-  return 0;
-}
-
-export function sortVideoItems(
-  videos: VideoItem[],
-  sortOrder: SortOrder = 'new'
-): VideoItem[] {
-  const copy = [...videos];
-  return copy.sort((a, b) => {
-    if (sortOrder === 'popular' || sortOrder === 'views') {
-      const viewsA = a.viewsCount ?? parseViewsCount(a.views);
-      const viewsB = b.viewsCount ?? parseViewsCount(b.views);
-      if (viewsB !== viewsA) return viewsB - viewsA;
+  // 第二優先：讀取資料庫傳入的 members 陣列（如果唔係全體 8 人預設值，代表有特定成員）
+  const fromArray = new Set<MemberName>();
+  if (Array.isArray(rawMembers)) {
+    for (const m of rawMembers) {
+      const key = String(m || '').trim().toLowerCase();
+      if (MEMBER_ALIAS_MAP[key]) {
+        fromArray.add(MEMBER_ALIAS_MAP[key]);
+      }
     }
+  }
 
-    const dateA = a.publishedAt || a.published_at || a.date || '';
-    const dateB = b.publishedAt || b.published_at || b.date || '';
-    const timeA = dateA ? new Date(dateA).getTime() : 0;
-    const timeB = dateB ? new Date(dateB).getTime() : 0;
+  if (fromArray.size > 0 && fromArray.size < ALL_MEMBER_NAMES.length) {
+    return Array.from(fromArray);
+  }
 
-    if (sortOrder === 'old' || sortOrder === 'oldest') {
-      return timeA - timeB;
-    }
-    return timeB - timeA;
-  });
+  // 第三優先：檢查簡介嘅前 200 字（避免簡介最底部的全團宣傳 Hashtag 污染單人片）
+  const shortDesc = String(description || '').slice(0, 200);
+  const descDetected = detectMembersFromText(`${title} ${shortDesc}`);
+  if (descDetected.length > 0 && descDetected.length < ALL_MEMBER_NAMES.length) {
+    return descDetected;
+  }
+
+  // 如果都冇特別指明單一成員，代表係全體 8 人團體片
+  return ALL_MEMBER_NAMES;
 }
 
+export const inferVideoMembers = normalizeMembers;
+
+export function extractYouTubeId(url: string = ''): string | null {
+  const match = String(url || '').match(
+    /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([a-zA-Z0-9_-]{11})/
+  );
+  return match ? match[1] : null;
+}
+
+export function mapSupabaseRowToVideoItem(row: any): VideoItem {
+  const title = row?.title || 'Untitled Video';
+  const description = row?.description || '';
+  const channel = row?.channel || 'Hearts2Hearts';
+  const videoUrl = row?.url || row?.videoUrl || '';
+  const ytId = extractYouTubeId(videoUrl);
+  const fallbackThumb = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : '';
+  const thumbnailUrl = row?.thumbnail || row?.thumbnailUrl || fallbackThumb;
+  const date = row?.published_at || row?.publishedAt || row?.date || '2025-02-24';
+
+  const partialItem: Partial<VideoItem> = {
+    title,
+    description,
+    channel,
+    videoUrl,
+    url: videoUrl,
+    type: row?.type || 'video',
+    category: row?.category || '',
+    duration: row?.duration || ''
+  };
+
+  const groupLabel = getVideoGroup(partialItem);
+  const isShorts = groupLabel === 'Shorts & Challenges';
+
+  return {
+    id: String(row?.id || ytId || Math.random()),
+    title,
+    category: groupLabel,
+    date,
+    publishedAt: date,
+    published_at: date,
+    duration: row?.duration || (isShorts ? 'Shorts' : 'Video'),
+    thumbnailUrl,
+    thumbnail: thumbnailUrl,
+    videoUrl,
+    url: videoUrl,
+    channel,
+    type: (row?.type as VideoType) || (isShorts ? 'shorts' : 'video'),
+    views: row?.views || channel,
+    members: normalizeMembers(row?.members, title, description),
+    description
+  };
+}
+
+export const mapSupabaseRowToVideo = mapSupabaseRowToVideoItem;
+
+/**
+ * 精準成員篩選邏輯：
+ * - 'ONLY'（或當用戶想搵「只限所選成員」）：影片入面的成員必須「100% 剛好等於」所選成員（不會混入 8 人大隊片！）
+ * - 'INCLUDE' / 'AND'（包含所選成員）：影片入面「有齊所選成員」即可（包含小分隊及 8 人大隊片）
+ * - 'OR'（任一所選成員）：影片入面有「任何一位所選成員」即可
+ */
 export function filterVideosByMembers(
   videos: VideoItem[],
   selectedMembers: (MemberName | string)[],
-  matchMode: MemberMatchMode = 'including'
+  matchMode: MemberMatchMode = 'INCLUDE'
 ): VideoItem[] {
   if (!selectedMembers || selectedMembers.length === 0) {
     return videos;
   }
 
-  const normalizedSelected = selectedMembers
-    .map(normalizeMemberName)
-    .filter(Boolean) as MemberName[];
+  const normalizedSelected = Array.from(
+    new Set(
+      selectedMembers.map(m => {
+        const key = String(m || '').trim().toLowerCase();
+        return MEMBER_ALIAS_MAP[key] || (m as MemberName);
+      })
+    )
+  );
 
-  if (normalizedSelected.length === 0) {
-    return videos;
-  }
+  const mode = String(matchMode || 'INCLUDE').trim().toUpperCase();
 
-  const mode = String(matchMode).toLowerCase();
+  return videos.filter(video => {
+    const videoMembers = Array.from(
+      new Set(
+        (video.members || []).map(m => {
+          const key = String(m || '').trim().toLowerCase();
+          return MEMBER_ALIAS_MAP[key] || (m as MemberName);
+        })
+      )
+    );
 
-  return videos.filter((video) => {
-    const videoMembers = (video.members || [])
-      .map(normalizeMemberName)
-      .filter(Boolean) as MemberName[];
-
-    if (mode === 'only') {
-      if (videoMembers.length !== normalizedSelected.length) {
-        return false;
-      }
-      return normalizedSelected.every((m) => videoMembers.includes(m));
+    // 1. ONLY 模式：影片成員數量與名單必須「完全一致」（只限呢幾位成員出場，冇其他人）
+    if (mode === 'ONLY') {
+      return (
+        videoMembers.length === normalizedSelected.length &&
+        normalizedSelected.every(m => videoMembers.includes(m))
+      );
     }
 
-    return normalizedSelected.every((m) => videoMembers.includes(m));
+    // 2. INCLUDE 模式（或傳統 OR）：包含所選成員
+    if (mode === 'INCLUDE' || mode === 'AND') {
+      return normalizedSelected.every(m => videoMembers.includes(m));
+    }
+
+    if (mode === 'OR') {
+      return normalizedSelected.some(m => videoMembers.includes(m));
+    }
+
+    return normalizedSelected.every(m => videoMembers.includes(m));
   });
 }
 
-export function mapSupabaseRowToVideoItem(row: any): VideoItem {
-  if (!row || typeof row !== 'object' || Array.isArray(row)) {
-    throw new Error('Invalid row data');
-  }
+export function parseViewsCount(viewsStr: string = ''): number {
+  if (!viewsStr) return 0;
+  const clean = String(viewsStr).trim().toUpperCase().replace(/,/g, '');
+  const match = clean.match(/([\d.]+)\s*([KMB])?/);
+  if (!match) return 0;
 
-  // Type validation
-  if (row.type !== undefined && row.type !== null && row.type !== '') {
-    const validTypes = ['video', 'shorts', 'mv', 'stage', 'original', 'other'];
-    if (!validTypes.includes(row.type)) {
-      throw new Error('Invalid type: ' + row.type);
-    }
-  }
+  const num = parseFloat(match[1]);
+  if (isNaN(num)) return 0;
 
-  // URL / YouTube identity validation
-  const rawUrl =
-    typeof row.url === 'string'
-      ? row.url
-      : typeof row.videoUrl === 'string'
-      ? row.videoUrl
-      : undefined;
-
-  if (rawUrl) {
-    try {
-      const parsedUrl = new URL(rawUrl);
-      const host = parsedUrl.hostname.toLowerCase();
-      const validHosts = [
-        'youtube.com',
-        'www.youtube.com',
-        'm.youtube.com',
-        'youtu.be',
-        'img.youtube.com',
-        'i.ytimg.com',
-      ];
-      if (!validHosts.includes(host)) {
-        throw new Error('Invalid YouTube identity or playback host: ' + host);
-      }
-    } catch (err: any) {
-      if (err?.message?.includes('YouTube identity')) throw err;
-      throw new Error('Invalid YouTube identity or URL: ' + rawUrl);
-    }
-  }
-
-  // Date validation
-  const rawDate =
-    typeof row.published_at === 'string'
-      ? row.published_at
-      : typeof row.publishedAt === 'string'
-      ? row.publishedAt
-      : typeof row.date === 'string'
-      ? row.date
-      : undefined;
-
-  if (rawDate) {
-    const dMatch = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (dMatch) {
-      const y = parseInt(dMatch[1], 10);
-      const m = parseInt(dMatch[2], 10) - 1;
-      const d = parseInt(dMatch[3], 10);
-      const check = new Date(Date.UTC(y, m, d));
-      if (
-        check.getUTCFullYear() !== y ||
-        check.getUTCMonth() !== m ||
-        check.getUTCDate() !== d
-      ) {
-        throw new Error('Invalid calendar date: ' + rawDate);
-      }
-    }
-    if (isNaN(Date.parse(rawDate))) {
-      throw new Error('Invalid date: ' + rawDate);
-    }
-  }
-
-  // Members validation
-  let rawMembers = row.members;
-  if (typeof rawMembers === 'string') {
-    try {
-      rawMembers = JSON.parse(rawMembers);
-    } catch {
-      throw new Error('Invalid members JSON format');
-    }
-  }
-  if (
-    rawMembers !== undefined &&
-    rawMembers !== null &&
-    !Array.isArray(rawMembers)
-  ) {
-    throw new Error('Invalid members format');
-  }
-
-  const ytId =
-    extractYouTubeId(rawUrl) ||
-    (typeof row.youtube_id === 'string'
-      ? row.youtube_id
-      : typeof row.youtubeId === 'string'
-      ? row.youtubeId
-      : undefined);
-
-  const title = typeof row.title === 'string' ? row.title : '';
-  const description = typeof row.description === 'string' ? row.description : '';
-  const channel = typeof row.channel === 'string' ? row.channel : 'Hearts2Hearts';
-
-  const fallbackThumb = ytId
-    ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`
-    : '';
-  const thumbnailUrl =
-    typeof row.thumbnail_url === 'string'
-      ? row.thumbnail_url
-      : typeof row.thumbnail === 'string'
-      ? row.thumbnail
-      : typeof row.thumbnailUrl === 'string'
-      ? row.thumbnailUrl
-      : fallbackThumb;
-
-  const publishedAt = rawDate
-    ? rawDate.includes('T')
-      ? rawDate.split('T')[0]
-      : rawDate
-    : '';
-
-  const duration = typeof row.duration === 'string' ? row.duration : '未提供';
-  const id = String(row.id ?? ytId ?? Math.random().toString(36).slice(2));
-
-  const members = normalizeMembers(rawMembers, title, description);
-  const genre = classifyVideoGenre(title, description, channel, rawUrl, row.type);
-  const group = getVideoGroup({ title, description, channel, url: rawUrl, type: row.type });
-
-  return {
-    id,
-    title,
-    category: typeof row.category === 'string' ? row.category : 'all',
-    date: publishedAt,
-    publishedAt,
-    published_at: publishedAt,
-    duration,
-    thumbnailUrl,
-    thumbnail: thumbnailUrl,
-    videoUrl: rawUrl || (ytId ? `https://www.youtube.com/watch?v=${ytId}` : undefined),
-    url: rawUrl,
-    youtubeId: ytId,
-    channel,
-    type: (row.type as VideoType) || (group === 'shorts' ? 'shorts' : 'video'),
-    views: typeof row.views === 'string' ? row.views : '',
-    viewsCount: typeof row.viewsCount === 'number' ? row.viewsCount : parseViewsCount(row.views),
-    members,
-    description,
-    group,
-    genre,
-    isSample: Boolean(row.isSample),
-    highlightNote:
-      typeof row.highlight_note === 'string'
-        ? row.highlight_note
-        : typeof row.highlightNote === 'string'
-        ? row.highlightNote
-        : undefined,
-  };
+  const unit = match[2];
+  if (unit === 'B') return num * 1_000_000_000;
+  if (unit === 'M') return num * 1_000_000;
+  if (unit === 'K') return num * 1_000;
+  return num;
 }
 
-export const mapSupabaseRowToVideo = mapSupabaseRowToVideoItem;
+export function sortVideoItems(
+  videos: VideoItem[],
+  sortOrder: SortOrder = 'newest'
+): VideoItem[] {
+  const copy = [...videos];
+  return copy.sort((a, b) => {
+    if (sortOrder === 'popular' || sortOrder === 'views') {
+      const viewsDiff = parseViewsCount(b.views) - parseViewsCount(a.views);
+      if (viewsDiff !== 0) return viewsDiff;
+    }
+
+    const timeA = new Date(a.date || a.publishedAt || a.published_at || 0).getTime();
+    const timeB = new Date(b.date || b.publishedAt || b.published_at || 0).getTime();
+
+    return sortOrder === 'oldest' ? timeA - timeB : timeB - timeA;
+  });
+}
