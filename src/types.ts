@@ -20,8 +20,15 @@ export type MemberName =
   | 'Ian'
   | 'Ye-on';
 
-// 同時支援 ONLY (只限該成員) / INCLUDE (包含該成員) 及兼容舊版 AND / OR
-export type MemberMatchMode = 'ONLY' | 'INCLUDE' | 'AND' | 'OR' | 'only' | 'include' | 'and' | 'or';
+export type MemberMatchMode =
+  | 'AND'
+  | 'OR'
+  | 'ONLY'
+  | 'INCLUDE'
+  | 'and'
+  | 'or'
+  | 'only'
+  | 'include';
 
 export type SortOrder = 'newest' | 'oldest' | 'popular' | 'views';
 
@@ -34,13 +41,14 @@ export type VideoType =
   | 'other'
   | string;
 
+// 5 大分類（同時兼容舊測試的標籤）
 export type VideoGroup =
   | 'All'
-  | 'Official Music Videos (MVs)'
-  | 'Shorts & Challenges'
-  | 'Stage Performances'
-  | 'Original Content'
-  | 'Other Official / Semi-official Content'
+  | 'Official MV'
+  | 'Shorts / Challenges'
+  | 'Stage / Performance'
+  | 'Variety Show'
+  | 'Other Video'
   | 'Official H2H'
   | 'Shorts'
   | 'External Channels'
