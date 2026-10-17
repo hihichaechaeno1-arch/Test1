@@ -36,16 +36,26 @@ const MEMBER_PATTERNS = {
   'Yuha': [/\byuha\b/i, /유하/],
   'Stella': [/\bstella\b/i, /스텔라/],
   'Juun': [/\bjuun\b/i, /(?<![가-힣])준(?![가-힣])/],
-  'A-na': [/\ba-na\b/i, /에이나/],
+  'A-na': [/\ba-na\b/i, /\bana\b/i, /에이나/],
   'Ian': [/\bian\b/i, /이안/],
-  'Ye-on': [/\bye-on\b/i, /예온/]
+  'Ye-on': [/\bye-on\b/i, /\byeon\b/i, /예온/]
 };
 
 const ALL_MEMBERS = Object.keys(MEMBER_PATTERNS);
 
-function detectMembers(text) {
-  if (!text) return ALL_MEMBERS;
-  const content = String(text);
+function detectMembers(title = '', description = '') {
+  // 優先檢查標題
+  const matchedInTitle = [];
+  for (const [name, patterns] of Object.entries(MEMBER_PATTERNS)) {
+    if (patterns.some(regex => regex.test(String(title)))) {
+      matchedInTitle.push(name);
+    }
+  }
+  if (matchedInTitle.length > 0 && matchedInTitle.length < ALL_MEMBERS.length) {
+    return matchedInTitle;
+  }
+
+  const content = `${title} ${String(description || '').slice(0, 200)}`;
   const matched = [];
   for (const [name, patterns] of Object.entries(MEMBER_PATTERNS)) {
     if (patterns.some(regex => regex.test(content))) {
@@ -55,29 +65,38 @@ function detectMembers(text) {
   return matched.length > 0 ? matched : ALL_MEMBERS;
 }
 
+function isOfficialChannelName(channelTitle = '') {
+  const c = String(channelTitle || '').toLowerCase();
+  return c.includes('hearts2hearts') || c.includes('hearts 2 hearts') || c.includes('하츠투하츠');
+}
+
 // 自動將影片歸入 5 大類別：'mv' | 'shorts' | 'stage' | 'original' | 'other'
-function classifyVideoType(title = '', description = '', channelTitle = '', isShortsUrl = false) {
+function classifyVideoType(title = '', description = '', channelTitle = '', forceOfficialShorts = false) {
   const t = String(title).toLowerCase();
   const d = String(description).toLowerCase();
   const c = String(channelTitle).toLowerCase();
+  const isOfficial = isOfficialChannelName(c);
 
-  // 1. Shorts & Challenges
-  if (
-    isShortsUrl ||
+  // 1. Shorts / Challenges：只限 Hearts2Hearts 官方頻道！
+  const hasShortsKeyword =
+    forceOfficialShorts ||
     t.includes('#shorts') ||
     /\bshorts\b/i.test(t) ||
     t.includes('challenge') ||
     t.includes('챌린지') ||
-    d.includes('#shorts')
-  ) {
+    d.includes('#shorts');
+
+  if (isOfficial && hasShortsKeyword) {
     return 'shorts';
   }
 
-  // 2. Official Music Videos (MVs)
-  const isTeaserOrBehind =
-    /(teaser|티저|trailer|트레일러|behind|비하인드|making|메이킹|reaction|리액션|interview|인터뷰|recording|녹음|unboxing|언박싱|lyric|가사|cover|커버)/i.test(t);
+  // 2. Official MV (排除 MV Commentary、Teaser、Behind、Reaction 等)
+  const isNotPureMv =
+    /(commentary|코멘터리|teaser|티저|trailer|트레일러|behind|비하인드|making|메이킹|reaction|리액션|interview|인터뷰|recording|녹음|unboxing|언박싱|lyric|가사|cover|커버|fancam|직캠|facecam|페이스캠|stage|inkigayo|인기가요|뮤직뱅크|음악중심|엠카운트다운|dance practice|안무|cheer guide|응원법)/i.test(
+      t
+    );
   if (
-    !isTeaserOrBehind &&
+    !isNotPureMv &&
     (/\bmv\b/i.test(t) ||
       t.includes('m/v') ||
       t.includes('music video') ||
@@ -88,23 +107,37 @@ function classifyVideoType(title = '', description = '', channelTitle = '', isSh
     return 'mv';
   }
 
-  // 3. Stage Performances
+  // 3. Stage / Performance (包含 SBS Entertainment 的舞台片)
+  const isPureVarietyTitle =
+    /(아는\s*형님|knowing\s*bros|런닝맨|running\s*man|아이돌\s*인간극장|돌박이일|워크돌|동네스타k|스브스뉴스|문명특급|살롱드립|집대성|할명수|리무진서비스)/i.test(
+      t
+    );
+  const isBehindOrVlog =
+    /(behind|비하인드|making|메이킹|vlog|브이로그|commentary|코멘터리|interview|인터뷰)/i.test(t);
+
   if (
-    /(sbskpop|inkigayo|kbs kpop|mbckpop|mnet|studio choom|the k-pop|all the k-pop|it's live)/i.test(c) ||
-    /(stage|fancam|직캠|facecam|페이스캠|인기가요|뮤직뱅크|음악중심|엠카운트다운|music bank|music core|m countdown|inkigayo|dance practice|안무|choreography|performance|퍼포먼스|showcase|쇼케이스|concert|콘서트|live clip|교차편집|원테이크|one take|fullcam|입덕직캠)/i.test(t)
+    !isBehindOrVlog &&
+    !isPureVarietyTitle &&
+    (/(sbskpop|inkigayo|kbs kpop|mbckpop|mnet|studio choom|the k-pop|all the k-pop|it's live|sbs entertainment)/i.test(c) ||
+      /(stage|fancam|직캠|facecam|페이스캠|인기가요|뮤직뱅크|음악중심|엠카운트다운|music bank|music core|m countdown|inkigayo|dance practice|안무|choreography|performance|퍼포먼스|showcase|쇼케이스|concert|콘서트|live clip|교차편집|원테이크|one take|fullcam|입덕직캠|가요대전|gayo daejeon|무대)/i.test(
+        t
+      ))
   ) {
     return 'stage';
   }
 
-  // 4. Original Content
+  // 4. Variety Show
   if (
-    /(knowingbros|아는형님|런닝맨|jtbcentertainment|sbs entertainment)/i.test(c) ||
-    /(vlog|브이로그|\bep\.|\bepisode\b|reality|리얼리티|자컨|diary|다이어리|\blog\b|아는 형님|knowing bros|런닝맨|running man|아이돌 인간극장)/i.test(t)
+    /(knowingbros|아는형님|런닝맨|jtbcentertainment)/i.test(c) ||
+    /(vlog|브이로그|\bep\.|\bepisode\b|reality|리얼리티|자컨|diary|다이어리|\blog\b|아는\s*형님|knowing\s*bros|런닝맨|running\s*man|아이돌\s*인간극장|예능|variety)/i.test(
+      t
+    ) ||
+    isPureVarietyTitle
   ) {
     return 'original';
   }
 
-  // 5. Other Official / Semi-official Content
+  // 5. Other Video (包含 MV Commentary 等)
   return 'other';
 }
 
@@ -151,32 +184,48 @@ async function resolveChannelId(channel) {
   return null;
 }
 
-async function saveVideoToSupabase(supabase, { videoId, title, description, publishedAt, channelTitle }) {
+async function saveVideoToSupabase(
+  supabase,
+  { videoId, title, description, publishedAt, channelTitle, forceOfficialShorts = false }
+) {
   if (!videoId || String(videoId).length < 5) return false;
   if (title === 'Private video' || title === 'Deleted video') return false;
 
-  const isShorts = `${title} ${description}`.toLowerCase().includes('#shorts') || `${title}`.toLowerCase().includes('shorts');
-  const type = classifyVideoType(title, description, channelTitle, isShorts);
+  const isOfficial = isOfficialChannelName(channelTitle);
+  const type = classifyVideoType(title, description, channelTitle, forceOfficialShorts);
+  const isShorts = type === 'shorts' || forceOfficialShorts;
+
   const videoUrl = isShorts
     ? `https://www.youtube.com/shorts/${videoId}`
     : `https://www.youtube.com/watch?v=${videoId}`;
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const shortsUrl = `https://www.youtube.com/shorts/${videoId}`;
 
   const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-  const members = detectMembers(`${title} ${description}`);
+  const members = detectMembers(title, description);
   const pubDate = (publishedAt || '').split('T')[0] || '2025-02-24';
 
-  const { data: existing, error: selectErr } = await supabase
+  // 同時檢查 watch?v= 同 /shorts/ 係咪已經存在喺資料庫
+  const { data: existingList, error: selectErr } = await supabase
     .from('videos')
-    .select('id')
-    .eq('url', videoUrl)
-    .maybeSingle();
+    .select('id, type, url')
+    .in('url', [watchUrl, shortsUrl]);
 
   if (selectErr) {
     console.error(`⚠️ 查詢資料庫錯誤 [${title}]:`, selectErr.message);
     return false;
   }
 
-  if (existing) {
+  if (existingList && existingList.length > 0) {
+    const existing = existingList[0];
+    // 如果之前被當成普通 video 入咗庫，但其實係官方 Shorts（或者分類改咗），自動更新修復！
+    if (existing.type !== type || (isShorts && existing.url !== shortsUrl)) {
+      await supabase
+        .from('videos')
+        .update({ type, url: videoUrl, members })
+        .eq('id', existing.id);
+      console.log(`🔄 [自動修正分類] [${type.toUpperCase()}] [${pubDate}] ${title}`);
+    }
     return false;
   }
 
@@ -184,7 +233,7 @@ async function saveVideoToSupabase(supabase, { videoId, title, description, publ
     title,
     url: videoUrl,
     thumbnail,
-    channel: channelTitle || 'Hearts2Hearts',
+    channel: isOfficial ? 'Hearts2Hearts' : (channelTitle || 'Hearts2Hearts'),
     type,
     published_at: pubDate,
     members
@@ -207,7 +256,14 @@ async function saveVideoToSupabase(supabase, { videoId, title, description, publ
   return true;
 }
 
-async function syncPlaylistById(supabase, playlistId, labelName, maxPages, skipKeywordFilter = false) {
+async function syncPlaylistById(
+  supabase,
+  playlistId,
+  labelName,
+  maxPages,
+  skipKeywordFilter = false,
+  forceOfficialShorts = false
+) {
   let nextPageToken = '';
   let page = 0;
   let added = 0;
@@ -243,7 +299,14 @@ async function syncPlaylistById(supabase, playlistId, labelName, maxPages, skipK
           continue;
         }
 
-        const ok = await saveVideoToSupabase(supabase, { videoId, title, description, publishedAt, channelTitle });
+        const ok = await saveVideoToSupabase(supabase, {
+          videoId,
+          title,
+          description,
+          publishedAt,
+          channelTitle,
+          forceOfficialShorts
+        });
         if (ok) added++;
       }
 
@@ -294,7 +357,14 @@ async function syncChannelSearch(supabase, channelId, channelName, maxPages) {
 
         if (!isH2HRelated(title)) continue;
 
-        const ok = await saveVideoToSupabase(supabase, { videoId, title, description, publishedAt, channelTitle });
+        const ok = await saveVideoToSupabase(supabase, {
+          videoId,
+          title,
+          description,
+          publishedAt,
+          channelTitle,
+          forceOfficialShorts: false
+        });
         if (ok) added++;
       }
 
@@ -327,12 +397,13 @@ async function main() {
   let totalAdded = 0;
 
   for (const pl of TRACKED_PLAYLISTS) {
-    totalAdded += await syncPlaylistById(supabase, pl.playlistId, pl.name, 30, pl.skipKeywordFilter);
+    totalAdded += await syncPlaylistById(supabase, pl.playlistId, pl.name, 30, pl.skipKeywordFilter, false);
   }
 
   const channels = loadChannels();
-  const officialMaxPages = SYNC_MODE === 'full_backfill' ? 20 : 2;
-  const broadcastMaxPages = SYNC_MODE === 'full_backfill' ? 5 : 1;
+  // 大幅提升官方頻道翻頁上限至 50 頁（可容納 2,500 條片，確保由出道第 1 日開始所有 Shorts 同影片 100% 抓齊！）
+  const officialMaxPages = SYNC_MODE === 'full_backfill' ? 50 : 5;
+  const broadcastMaxPages = SYNC_MODE === 'full_backfill' ? 8 : 2;
 
   for (const ch of channels) {
     const name = ch.name || ch.title || ch.handle || 'Unknown Channel';
@@ -348,8 +419,27 @@ async function main() {
       String(ch.handle || '').toLowerCase().includes('hearts2hearts');
 
     if (isOfficialMain) {
+      // 1. 先掃描官方頻道專屬的 Shorts 播放清單 (UUSH...)，確保出道至今所有官方 Shorts 100% 標記為 shorts！
+      const officialShortsPlaylistId = 'UUSH' + channelId.slice(2);
+      totalAdded += await syncPlaylistById(
+        supabase,
+        officialShortsPlaylistId,
+        `${name} (Official Shorts)`,
+        officialMaxPages,
+        true,
+        true
+      );
+
+      // 2. 再掃描官方頻道全部上傳清單 (UU...)
       const uploadsPlaylistId = 'UU' + channelId.slice(2);
-      totalAdded += await syncPlaylistById(supabase, uploadsPlaylistId, name, officialMaxPages, true);
+      totalAdded += await syncPlaylistById(
+        supabase,
+        uploadsPlaylistId,
+        name,
+        officialMaxPages,
+        true,
+        false
+      );
     } else {
       totalAdded += await syncChannelSearch(supabase, channelId, name, broadcastMaxPages);
     }
