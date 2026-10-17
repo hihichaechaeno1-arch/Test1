@@ -282,7 +282,7 @@ export const mapSupabaseRowToVideo = mapSupabaseRowToVideoItem;
 export function filterVideosByMembers(
   videos: VideoItem[],
   selectedMembers: (MemberName | string)[],
-  matchMode: MemberMatchMode = 'INCLUDE'
+  matchMode: MemberMatchMode = 'AND'
 ): VideoItem[] {
   if (!selectedMembers || selectedMembers.length === 0) {
     return videos;
@@ -297,7 +297,7 @@ export function filterVideosByMembers(
     )
   );
 
-  const mode = String(matchMode || 'INCLUDE').trim().toUpperCase();
+  const mode = String(matchMode || 'AND').trim().toUpperCase();
 
   return videos.filter(video => {
     const videoMembers = Array.from(
@@ -309,17 +309,18 @@ export function filterVideosByMembers(
       )
     );
 
-    if (mode === 'ONLY' || mode === 'AND') {
+    if (mode === 'ONLY') {
       return (
         videoMembers.length === normalizedSelected.length &&
         normalizedSelected.every(m => videoMembers.includes(m))
       );
     }
 
-    if (mode === 'INCLUDE' || mode === 'OR') {
-      return normalizedSelected.every(m => videoMembers.includes(m));
+    if (mode === 'OR') {
+      return normalizedSelected.some(m => videoMembers.includes(m));
     }
 
+    // 'AND' or 'INCLUDE'
     return normalizedSelected.every(m => videoMembers.includes(m));
   });
 }
