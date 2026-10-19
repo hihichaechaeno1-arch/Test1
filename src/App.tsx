@@ -13,7 +13,8 @@ import { VideoCard } from './components/VideoCard';
 import { Footer } from './components/Footer';
 import {
   filterVideosByMembers,
-  getVideoGroup,
+  getVideoGroups,
+  videoMatchesGenre,
   sortVideoItems,
   parseViewsCount,
   FIVE_CATEGORIES,
@@ -64,8 +65,10 @@ export default function App() {
 
   const showDemo = useCallback(() => {
     request.current?.abort();
-    setVideos(MOCK_VIDEOS.map(video => ({ ...video, genre: getVideoGroup(video), isSample: true }))
-      .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || '')));
+    setVideos(MOCK_VIDEOS.map(video => {
+      const genres = getVideoGroups(video);
+      return { ...video, genre: genres[0], genres, isSample: true };
+    }).sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || '')));
     setDataSource('demo');
     setFetchError(null);
     setIsLoading(false);
@@ -127,16 +130,18 @@ export default function App() {
   const allCount = memberFilteredBase.length;
   const { mv: mvCount, shorts: shortsCount, stage: stageCount, original: originalCount, other: otherCount } = useMemo(() => {
     const counts = { mv: 0, shorts: 0, stage: 0, original: 0, other: 0 };
-    for (const video of memberFilteredBase) counts[getVideoGroup(video)]++;
+    for (const video of memberFilteredBase) {
+      for (const genre of getVideoGroups(video)) counts[genre]++;
+    }
     return counts;
   }, [memberFilteredBase]);
 
   // Final filtered list including 5-category filter, search query, and sort order (new, old, popular)
   const filteredVideos = useMemo(() => {
     const matches = memberFilteredBase.filter((video) => {
-      // 1. 5-Category filter
-      const genre = getVideoGroup(video);
-      if (groupFilter !== 'all' && genre !== groupFilter) {
+      // 1. 5-Category filter (a video may belong to more than one tab)
+      const genres = getVideoGroups(video);
+      if (groupFilter !== 'all' && !videoMatchesGenre(video, groupFilter)) {
         return false;
       }
 
@@ -146,11 +151,12 @@ export default function App() {
         const matchesTitle = (video.title || '').toLowerCase().includes(query);
         const matchesChannel = (video.channel || '').toLowerCase().includes(query);
         const matchesDescription = (video.description || '').toLowerCase().includes(query);
-        const catInfo = FIVE_CATEGORIES[genre];
-        const matchesCat =
-          catInfo?.label.toLowerCase().includes(query) ||
-          catInfo?.englishLabel.toLowerCase().includes(query) ||
-          catInfo?.shortLabel.toLowerCase().includes(query);
+        const matchesCat = genres.some((genre) => {
+          const catInfo = FIVE_CATEGORIES[genre];
+          return catInfo?.label.toLowerCase().includes(query)
+            || catInfo?.englishLabel.toLowerCase().includes(query)
+            || catInfo?.shortLabel.toLowerCase().includes(query);
+        });
         if (!matchesTitle && !matchesChannel && !matchesDescription && !matchesCat) {
           return false;
         }
@@ -324,7 +330,7 @@ export default function App() {
               )}
             </button>
 
-            {/* 3. Shorts & 挑戰 (Shorts & Challenges) */}
+            {/* 3. Official Shorts & challenges only */}
             <button
               type="button"
               onClick={() => setGroupFilter('shorts')}
@@ -336,7 +342,7 @@ export default function App() {
               }`}
             >
               <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20" />
-              <span>Shorts & 挑戰</span>
+              <span>官方 Shorts</span>
               {!isLoading && (
                 <span className="text-[11px] font-mono tabular-nums opacity-75">
                   ({shortsCount})

@@ -28,7 +28,9 @@ Member names appear in types, profile/sample data, presets, importer aliases, an
 ## 3. Video contract
 
 `VideoType = 'video' | 'shorts'`.
-`VideoGenre = 'mv' | 'shorts' | 'stage' | 'original' | 'other'` drives the five active content tabs. `VideoCategory` additionally accepts legacy `all/dance/vlog/variety` metadata; it is not used as an ownership assertion. Derived `genre` is optional for fixtures and computed at the mapping/UI boundary. `getVideoGroup` returns a genre code, not the removed four-group official-source model.
+`VideoGenre = 'mv' | 'shorts' | 'stage' | 'original' | 'other'` drives the five active content tabs. A video may belong to **more than one** tab via `genres[]` (for example official vlog Shorts → `shorts` + `original`). `VideoCategory` additionally accepts legacy `all/dance/vlog/variety` metadata; it is not used as an ownership assertion. Derived `genre` / `genres` are computed at the mapping/UI boundary (not stored in Supabase). `getVideoGroups` returns all memberships; `getVideoGroup` returns the primary (first) code.
+
+**Shorts tab rule:** only Hearts2Hearts **official** channel Shorts/challenges. Non-official Shorts are classified by content into `stage` / `original` / `other` and never appear under Shorts.
 
 `MemberMatchMode = 'including' | 'only' | 'AND' | 'OR'`; the active UI uses including/all-selected and only/exact-stored-tag-set. `SortOrder = 'new' | 'old' | 'popular'`; unknown dates remain last. Popularity is disabled in the UI if usable counts are absent.
 

@@ -11,9 +11,13 @@ Tags are unverified associations and can originate from text inference or older 
 1. Wait for loading to finish and check the visible data-source message.
 2. Select at least one member using their avatar/name button.
 3. Choose match mode: **including** (all selected tags present; extras allowed) or **only** (exact stored tag set).
-4. Optionally narrow with a content-category tab: **全部**, **MV**, **Shorts**, **舞台**, **原創**, or **其他**.
+4. Optionally narrow with a content-category tab: **全部**, **MV**, **官方 Shorts**, **舞台**, **綜藝**, or **其他**.
 5. Optionally search title, channel, or description, and choose sort (new / old / popular when view counts exist).
 6. Open a live card in YouTube; demo cards are non-playable.
+
+**Category rules (current):**
+- **官方 Shorts**：只收 Hearts2Hearts 官方頻道的 Shorts／挑戰。官方 Vlog 類 Shorts（例如琴房、後台日記）會**同時**出現在 Shorts 與綜藝。
+- 其他頻道的 Shorts／挑戰不會進 Shorts tab，會按內容分到舞台、綜藝、或其他影音。
 
 In **including** mode, Carmen + Jiwoo finds records tagged with both; additional members on the record are allowed. **Only** mode requires the stored tag set to match the selection exactly. No selection displays a prompt rather than the entire archive.
 

@@ -4,21 +4,49 @@
  */
 
 import React, { useState } from 'react';
-import { VideoItem, MemberName } from '../types';
+import { VideoItem, MemberName, VideoGenre } from '../types';
 import { ExternalLink, Play, Flame, Film, Users, Tv, Calendar, Sparkles, Layers } from 'lucide-react';
-import { getVideoGroup } from '../lib/videoData';
+import { getVideoGroups } from '../lib/videoData';
 
 interface VideoCardProps {
   video: VideoItem;
   selectedMembers: MemberName[];
 }
 
+const GENRE_BADGE: Record<VideoGenre, { className: string; icon: React.ReactNode; label: string }> = {
+  mv: {
+    className: 'bg-rose-600/95 text-white font-bold',
+    icon: <Film className="w-3.5 h-3.5 fill-white text-white" />,
+    label: '音樂錄影帶',
+  },
+  shorts: {
+    className: 'bg-amber-500/95 text-white font-bold',
+    icon: <Flame className="w-3.5 h-3.5 fill-white text-white" />,
+    label: '官方 Shorts',
+  },
+  stage: {
+    className: 'bg-sky-600/95 text-white font-bold',
+    icon: <Tv className="w-3.5 h-3.5 text-sky-100" />,
+    label: '舞台與直拍',
+  },
+  original: {
+    className: 'bg-emerald-600/95 text-white font-bold',
+    icon: <Sparkles className="w-3.5 h-3.5 fill-white text-white" />,
+    label: '綜藝 / Vlog',
+  },
+  other: {
+    className: 'bg-purple-700/95 text-white font-semibold',
+    icon: <Layers className="w-3.5 h-3.5 text-purple-200" />,
+    label: '其他影音',
+  },
+};
+
 export const VideoCard: React.FC<VideoCardProps> = ({
   video,
   selectedMembers,
 }) => {
-  const genre = getVideoGroup(video);
-  const isShorts = genre === 'shorts';
+  const genres = getVideoGroups(video);
+  const isShorts = genres.includes('shorts') || video.type === 'shorts';
   const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const Card = video.isSample ? 'article' : 'a';
@@ -56,44 +84,26 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           </div>
         </div>
 
-        {/* Classification Group Badge (5 大分類徽章) */}
-        <div className="absolute top-3 left-3">
-          {genre === 'mv' && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-600/95 text-white tracking-wide shadow-md backdrop-blur-xs">
-              <Film className="w-3.5 h-3.5 fill-white text-white" />
-              音樂錄影帶
-            </span>
-          )}
-          {genre === 'shorts' && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/95 text-white tracking-wide shadow-md backdrop-blur-xs">
-              <Flame className="w-3.5 h-3.5 fill-white text-white" />
-              Shorts & 挑戰
-            </span>
-          )}
-          {genre === 'stage' && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-sky-600/95 text-white tracking-wide shadow-md backdrop-blur-xs">
-              <Tv className="w-3.5 h-3.5 text-sky-100" />
-              舞台與直拍
-            </span>
-          )}
-          {genre === 'original' && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600/95 text-white tracking-wide shadow-md backdrop-blur-xs">
-              <Sparkles className="w-3.5 h-3.5 fill-white text-white" />
-              綜藝 / Vlog
-            </span>
-          )}
-          {genre === 'other' && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-700/95 text-white tracking-wide shadow-md backdrop-blur-xs">
-              <Layers className="w-3.5 h-3.5 text-purple-200" />
-              其他影音
-            </span>
-          )}
+        {/* Classification badges — dual-tab videos show every membership */}
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start">
+          {genres.map((genre) => {
+            const badge = GENRE_BADGE[genre];
+            return (
+              <span
+                key={genre}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs tracking-wide shadow-md backdrop-blur-xs ${badge.className}`}
+              >
+                {badge.icon}
+                {badge.label}
+              </span>
+            );
+          })}
         </div>
 
-        {/* If Shorts, special visual indicator */}
+        {/* Physical Shorts format indicator (may differ from Shorts tab membership) */}
         {isShorts && (
           <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-medium backdrop-blur-xs">
-            Shorts / 挑戰
+            Shorts 格式
           </div>
         )}
 

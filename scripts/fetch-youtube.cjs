@@ -1,7 +1,7 @@
 /** @license SPDX-License-Identifier: Apache-2.0 */
 
 // No SDK/config side effects on import: the preflight runs before dependency installation.
-const { detectMembers, classifyVideoGenre } = require('../src/lib/videoMetadata.cjs');
+const { detectMembers, classifyVideoGenres, hasShortsFormatEvidence } = require('../src/lib/videoMetadata.cjs');
 
 function validTimestamp(value) {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(value) &&
@@ -162,11 +162,14 @@ async function syncVideos({
           continue;
         }
         const videoUrl = `https://www.youtube.com/watch?v=${id}`;
-        const inferredGenre = classifyVideoGenre(snippet.title, description, snippet.channelTitle || '');
+        const channelTitle = typeof snippet.channelTitle === 'string' ? snippet.channelTitle : channelId;
+        const inferredGenres = classifyVideoGenres(snippet.title, description, channelTitle, '', 'video', channelId);
+        const physicalShorts = hasShortsFormatEvidence(snippet.title, description, '', 'video')
+          || inferredGenres.includes('shorts');
         const metadata = {
           title: snippet.title, thumbnail: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
-          channel: typeof snippet.channelTitle === 'string' ? snippet.channelTitle : channelId,
-          type: inferredGenre === 'shorts' ? 'shorts' : 'video',
+          channel: channelTitle,
+          type: physicalShorts ? 'shorts' : 'video',
           published_at: snippet.publishedAt.split('T')[0], description,
         };
         let operation = 'lookup';

@@ -1,13 +1,20 @@
 /** @license SPDX-License-Identifier: Apache-2.0 */
 
 import type { MemberMatchMode, MemberName, SortOrder, VideoCategory, VideoGenre, VideoItem } from '../types';
-import { canonicalMember, classifyVideoGenre, detectMembers, getYoutubeId } from './videoMetadata.cjs';
+import {
+  canonicalMember,
+  classifyVideoGenre,
+  classifyVideoGenres,
+  detectMembers,
+  getYoutubeId,
+  hasShortsFormatEvidence,
+} from './videoMetadata.cjs';
 
-export { classifyVideoGenre, getYoutubeId };
+export { classifyVideoGenre, classifyVideoGenres, getYoutubeId, hasShortsFormatEvidence };
 
 export const FIVE_CATEGORIES: Record<VideoGenre, { label: string; englishLabel: string; shortLabel: string }> = {
   mv: { label: '音樂錄影帶', englishLabel: 'Music Video', shortLabel: 'MV' },
-  shorts: { label: 'Shorts 與挑戰', englishLabel: 'Shorts / Challenges', shortLabel: 'Shorts' },
+  shorts: { label: '官方 Shorts 與挑戰', englishLabel: 'Official Shorts / Challenges', shortLabel: 'Shorts' },
   stage: { label: '舞台表演', englishLabel: 'Stage / Performance', shortLabel: '舞台' },
   original: { label: '綜藝與 Vlog', englishLabel: 'Variety / Vlog', shortLabel: '綜藝' },
   other: { label: '其他影音', englishLabel: 'Other Video', shortLabel: '其他' },
@@ -35,8 +42,22 @@ export function normalizeMembers(value: unknown): MemberName[] {
   }))];
 }
 
+/** All category-tab memberships for a video (may include more than one). */
+export function getVideoGroups(video: Partial<VideoItem>): VideoGenre[] {
+  if (Array.isArray(video.genres) && video.genres.length > 0) {
+    return [...new Set(video.genres)];
+  }
+  if (video.genre) return [video.genre];
+  return classifyVideoGenres(video.title, video.description, video.channel, video.url, video.type);
+}
+
+/** Primary category tab (first membership). */
 export function getVideoGroup(video: Partial<VideoItem>): VideoGenre {
-  return video.genre || classifyVideoGenre(video.title, video.description, video.channel, video.url, video.type);
+  return getVideoGroups(video)[0];
+}
+
+export function videoMatchesGenre(video: Partial<VideoItem>, genre: VideoGenre): boolean {
+  return getVideoGroups(video).includes(genre);
 }
 
 function parseDate(value: unknown): string {
@@ -69,12 +90,16 @@ export function mapSupabaseRowToVideoItem(value: unknown): VideoItem {
   const title = text(row.title, '無標題影片');
   const description = text(row.description);
   const channel = text(row.channel, '未提供頻道名稱');
+  const sourceUrl = text(row.url);
   const url = `https://www.youtube.com/watch?v=${youtubeId}`;
-  const genre = classifyVideoGenre(title, description, channel, text(row.url), rawType);
+  const genres = classifyVideoGenres(title, description, channel, sourceUrl, rawType);
+  const genre = genres[0];
+  const physicalShorts = hasShortsFormatEvidence(title, description, sourceUrl, rawType)
+    || genres.includes('shorts');
   return {
     id: typeof row.id === 'number' && Number.isFinite(row.id) ? String(row.id) : text(row.id, youtubeId),
-    title, description, channel, url, youtubeId, genre,
-    type: rawType === 'shorts' || genre === 'shorts' ? 'shorts' : 'video',
+    title, description, channel, url, youtubeId, genre, genres,
+    type: physicalShorts ? 'shorts' : 'video',
     category: CATEGORIES.includes(category) ? category : 'all',
     members: normalizeMembers(row.members),
     duration: text(row.duration, '未提供'),

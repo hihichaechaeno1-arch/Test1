@@ -28,8 +28,10 @@ export interface VideoItem {
   title: string;
   type: VideoType;
   category: VideoCategory;
-  /** Derived once when records/fixtures enter the UI; never an ownership assertion. */
+  /** Primary tab membership; derived at mapping/UI boundary. */
   genre?: VideoGenre;
+  /** All tab memberships (official vlog Shorts may be both shorts + original). */
+  genres?: VideoGenre[];
   channel: string;
   members: MemberName[];
   duration: string;

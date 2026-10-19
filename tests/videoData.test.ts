@@ -4,9 +4,11 @@ import {
   filterVideosByMembers,
   mapSupabaseRowToVideoItem,
   getVideoGroup,
+  getVideoGroups,
   parseViewsCount,
   sortVideoItems,
   classifyVideoGenre,
+  classifyVideoGenres,
 } from '../src/lib/videoData';
 import type { VideoItem } from '../src/types';
 
@@ -95,22 +97,43 @@ test('legacy genre values normalize without conflating format and category', () 
   }
 });
 
-test('five content categories are independent of claims about official ownership', () => {
+test('five content categories: Shorts tab is official-channel only', () => {
   const cases = [
     [{ channel: 'Hearts2Hearts', type: 'video', title: '【MV】Heart Beat Echo' }, 'mv'],
     [{ channel: 'Hearts2Hearts', title: '團綜 EP.01' }, 'original'],
     [{ channel: 'Hearts2Hearts', title: 'Dance Practice' }, 'stage'],
     [{ channel: 'Hearts2Hearts', title: 'Dance Practice BH2ND (Behind)' }, 'other'],
     [{ channel: 'Hearts2Hearts', type: 'shorts', title: 'Cute moment' }, 'shorts'],
-    [{ channel: '1theK', type: 'shorts', title: 'Stella challenge' }, 'shorts'],
-    [{ channel: 'M2', title: 'Relay Dance #shorts' }, 'shorts'],
+    [{ channel: '1theK', type: 'shorts', title: 'Stella challenge' }, 'other'],
+    [{ channel: 'M2', title: 'Relay Dance #shorts' }, 'stage'],
+    [{ channel: 'M2', type: 'shorts', title: 'Juun & A-na Cypher 幕後練習' }, 'other'],
     [{ channel: 'Mnet K-POP', title: 'Carmen 4K Fancam' }, 'stage'],
     [{ channel: 'SBS Entertainment', title: 'Interview (Behind)' }, 'other'],
     [{ channel: '아는형님 Knowingbros', title: 'Hearts2Hearts 방문' }, 'original'],
     [{ channel: 'Hearts2Hearts', title: 'different #Hearts2Hearts #JIWOO' }, 'other'],
     [{ channel: 'Unofficial Hearts2Hearts Fan', title: 'Unlabeled clip' }, 'other'],
+    [{ channel: 'M2', title: '【SOLO】Juun 錄音室自作 Rap Cypher' }, 'other'],
   ] as const;
   for (const [video, expected] of cases) assert.equal(getVideoGroup(video), expected);
+});
+
+test('official vlog Shorts appear in both Shorts and 綜藝 tabs', () => {
+  assert.deepEqual(
+    getVideoGroups({
+      channel: 'Hearts2Hearts 官方頻道',
+      type: 'shorts',
+      title: '【Shorts】Yuha 琴房隨筆！15秒即興',
+    }),
+    ['shorts', 'original'],
+  );
+  assert.deepEqual(
+    classifyVideoGenres('【Shorts】Ian 後台待機室的探險日記', '', 'Hearts2Hearts', '', 'shorts'),
+    ['shorts', 'original'],
+  );
+  assert.deepEqual(
+    classifyVideoGenres('Carmen 錄音室自彈自唱 30秒', '', 'Hearts2Hearts', '', 'shorts'),
+    ['shorts'],
+  );
 });
 
 test('parseViewsCount extracts numeric counts accurately across varied formats', () => {
@@ -223,16 +246,17 @@ test('classifyVideoGenre accurately categorizes into 5 distinct types', () => {
   assert.equal(classifyVideoGenre("【MV】Heart Beat Echo", '', 'Hearts2Hearts 官方頻道'), 'mv');
   assert.equal(classifyVideoGenre("Hearts2Hearts 하츠투하츠 'Moonride' Music Video", '', 'SMTOWN'), 'mv');
 
-  // 2. Shorts & Challenges
-  // A channel name or group hashtag alone is not evidence of Shorts format.
+  // 2. Shorts tab = official channel Shorts/challenges only
   assert.equal(classifyVideoGenre('that one hotpot night.. #Hearts2Hearts #하츠투하츠 #H2H', '', 'Hearts2Hearts'), 'other');
   assert.equal(classifyVideoGenre('STYLE 手勢舞挑戰', '', 'Hearts2Hearts'), 'shorts');
   assert.equal(classifyVideoGenre('Cute moment', '', 'Hearts2Hearts', 'https://youtube.com/shorts/abcdefghijk'), 'shorts');
+  assert.equal(classifyVideoGenre('STYLE 手勢舞挑戰', '', '1theK'), 'other');
 
   // 3. Stage Performances (Music shows + Concerts + Special stages)
   assert.equal(classifyVideoGenre('[#음중직캠] Hearts2Hearts STELLA – STYLE FanCam | 쇼! 음악중심', '', 'MBCkpop'), 'stage');
   assert.equal(classifyVideoGenre('ICONIC HEART - Hearts2Hearts [뮤직뱅크/Music Bank]', '', 'KBS Kpop'), 'stage');
   assert.equal(classifyVideoGenre('Hearts2Hearts - INTRO + Lemon Tang #2026SBS가요대전Summer', '', 'SBS Entertainment'), 'stage');
+  assert.equal(classifyVideoGenre('Relay Dance #shorts', '', 'M2'), 'stage');
 
   // 4. Original Content (Vlogs, reality series, self-produced content)
   assert.equal(classifyVideoGenre('ICONIC POWER RACE | 둘셋하투하 EP.4', '', 'Hearts2Hearts'), 'original');
