@@ -10,12 +10,12 @@ Tags are unverified associations and can originate from text inference or older 
 
 1. Wait for loading to finish and check the visible data-source message.
 2. Select at least one member using their avatar/name button.
-3. Add more members to require **all** selected tags in every result.
-4. Choose **全部**, **完整影片**, or **Shorts 短片**.
-5. Optionally search title, channel, or description.
+3. Choose match mode: **including** (all selected tags present; extras allowed) or **only** (exact stored tag set).
+4. Optionally narrow with a content-category tab: **全部**, **MV**, **Shorts**, **舞台**, **原創**, or **其他**.
+5. Optionally search title, channel, or description, and choose sort (new / old / popular when view counts exist).
 6. Open a live card in YouTube; demo cards are non-playable.
 
-Carmen + Jiwoo finds records tagged with both. Additional members are allowed. This is inclusive AND, not OR or an exact-group match. No selection displays a prompt rather than the entire archive.
+In **including** mode, Carmen + Jiwoo finds records tagged with both; additional members on the record are allowed. **Only** mode requires the stored tag set to match the selection exactly. No selection displays a prompt rather than the entire archive.
 
 ## Selection and presets
 
@@ -31,13 +31,13 @@ Active presets:
 | 主唱三人組 | Carmen, Yuha, Ye-on. |
 | 舞線三人組 | Jiwoo, Stella, Ian. |
 
-Clearing members or applying a preset **retains** format and keyword controls. Clear the keyword manually or switch formats if results appear unexpectedly narrow. Reloading the page resets filters.
+Clearing members or applying a preset **retains** genre, sort, and keyword controls. Clear the keyword manually or switch category tabs if results appear unexpectedly narrow. Reloading the page resets filters.
 
 ## Keyword matching and counters
 
 Search matches a trimmed, case-insensitive substring in title, channel, or description. There is no fuzzy matching, remote YouTube search, translation, stemming, or multi-keyword operator syntax.
 
-Format-tab counters reflect member tags before keyword filtering. The results heading reflects the final keyword/format result count. Their counts may therefore differ intentionally.
+Category-tab counters reflect member tags before keyword filtering. The results heading reflects the final keyword/category result count. Their counts may therefore differ intentionally.
 
 ## Data states
 
@@ -58,7 +58,7 @@ Use **重新讀取資料** to retry/refetch, or **檢視示範資料** to delibe
 
 ## Cards and images
 
-Live cards show title, channel, description, format, member tags marked **未核實**, publication date, and optional display metadata. Both video formats use a valid `watch?v=` link. No embedded modal is active.
+Live cards show title, channel, description, content-category badge, member tags marked **未核實**, publication date, and optional display metadata. Playback uses a valid `watch?v=` link. No embedded modal is active.
 
 Missing duration/date values display `未提供`; view text may be blank. Public minimal projections do not currently load optional duration/views/category/highlight columns. Cards lazy-load images and replace failed images with a local visual placeholder; member avatars fall back to initials.
 
@@ -78,7 +78,7 @@ Member profiles, standalone recommendation navigation, AND/OR mode, and embedded
 
 ## Troubleshooting
 
-- **No matches:** select a member, switch to all formats, and clear the keyword.
+- **No matches:** select a member, switch to **全部**, clear the keyword, and try **including** mode if **only** is too strict.
 - **Tags disagree with footage:** ask the maintainer to verify/correct the source record; text association is not appearance evidence.
 - **Load error:** retry; maintainers should inspect public configuration, table fields, grants, RLS, and invalid rows.
 - **Demo instead of live:** check the source message. Blank credentials select demo; failed live reads no longer silently fall back.

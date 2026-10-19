@@ -7,7 +7,7 @@ Two independent runtimes use an externally managed Supabase database:
 1. React/Vite browser application: public metadata reads, validation, tag/format/text filtering, external playback links.
 2. Node importer: owner-approved YouTube search, bounded refresh/insert, privileged database access.
 
-There is no checked-in server, authentication flow, Edge Function, database migration, or Supabase local-stack configuration.
+There is no checked-in server, authentication flow, Edge Function, or Supabase local-stack configuration. An optional additive SQL migration for `videos.description` lives under `db/migrations/`; it is not applied automatically and was not confirmed on production at last inspection.
 
 ```mermaid
 flowchart LR
@@ -51,13 +51,19 @@ docs/                                Current reference, review, remediation, pro
 package.json / bun.lock              Pinned scripts/dependencies/tooling
 index.html / metadata.json           Active tagged-video product metadata
 vite.config.ts / tsconfig.json       Build, public env, aliases, type settings
+vercel.json                          Bun install + build → dist
+config/youtube-channels.json         Verified allowlist channel IDs
+db/migrations/*.sql                  Optional additive schema (owner-applied)
 scripts/fetch-youtube.cjs             Configuration, inference, bounded importer/CLI
-tests/*.test.ts[x]                    Mapper/archive/importer/component regressions
+scripts/check-youtube-sync.cjs        Fail-closed GitHub preflight
+scripts/browser-smoke.cjs             Optional Playwright smoke
+tests/*.test.ts[x|cjs]                Mapper/archive/importer/component regressions
 src/main.tsx                         createRoot bootstrap
 src/App.tsx                          Data state, request lifecycle, filters, active page
 src/types.ts                         Canonical member/video types
 src/lib/supabase.ts                   Optional client initialization/config diagnostics
 src/lib/videoData.ts                  Validated pure row adapter and YouTube ID parsing
+src/lib/videoMetadata.cjs             Shared member aliases / genre classification
 src/lib/archive.ts                    Explicit public projection and paginated reads
 src/data/h2hData.ts                   Eight member entries and sixteen demo fixtures
 src/index.css                        Fonts, focus-visible defaults, image helper
@@ -79,9 +85,9 @@ src/components/VideoModal.tsx         Dormant embedded playback
 main → App
        ├── Inline header and data-source status
        ├── Always-visible source/error/demo message and reload controls
-       ├── MemberSelector → MemberAvatarItem × 8
+       ├── MemberSelector → MemberAvatarItem × 8 (+ including/only mode)
        ├── Five inline presets
-       ├── Format controls + labeled keyword search
+       ├── Five genre tabs + sort + labeled keyword search
        ├── Loading / no selection / results / empty results
        │   └── VideoCard × matching records
        └── Footer

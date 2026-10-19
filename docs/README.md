@@ -1,18 +1,19 @@
 # Project documentation
 
-**Current repair:** start with [Vercel build repair and validation](REPAIR_VALIDATION.md). It supersedes older passing-test, runtime-version, and uncommitted-state claims. Historical incident reports remain evidence of their specific inspected revisions, not current production status.
+**Current overview:** start with [Current-state analysis](CURRENT_STATE_ANALYSIS.md) (2026-10-19 whole-repo review). For build-repair evidence, use [Vercel build repair and validation](REPAIR_VALIDATION.md). Historical incident reports remain evidence of their specific inspected revisions, not current production status.
 
 ## Reading paths
 
 | Audience | Start here |
 | --- | --- |
 | User | [User guide](USER_GUIDE.md) |
-| Developer | [Setup](SETUP_CONFIGURATION.md) → [Architecture](ARCHITECTURE.md) → [Data model](DATA_MODEL.md) → [Testing](DEVELOPMENT_TESTING.md) |
+| Developer | [Current-state analysis](CURRENT_STATE_ANALYSIS.md) → [Setup](SETUP_CONFIGURATION.md) → [Architecture](ARCHITECTURE.md) → [Data model](DATA_MODEL.md) → [Testing](DEVELOPMENT_TESTING.md) |
 | Data maintainer | [Data model](DATA_MODEL.md) → [YouTube sync](YOUTUBE_SYNC.md) → [Operations](DEPLOYMENT_OPERATIONS.md) |
-| Release owner | [Remediation status](REMEDIATION.md) → [Operations](DEPLOYMENT_OPERATIONS.md) → [Content register](CONTENT_PROVENANCE.md) |
+| Release owner | [Current-state analysis](CURRENT_STATE_ANALYSIS.md) → [Remediation status](REMEDIATION.md) → [Operations](DEPLOYMENT_OPERATIONS.md) → [Content register](CONTENT_PROVENANCE.md) |
 
 ## Document map
 
+- [Current-state analysis](CURRENT_STATE_ANALYSIS.md): 2026-10-19 architecture, stack, flows, test inventory, doc drift, risks, and owner actions.
 - [Current repair/validation](REPAIR_VALIDATION.md): verified build repair, current contracts, clean installation, browser runner, release checklist, and residual risks.
 - [51-finding baseline review](COMPREHENSIVE_REVIEW.md): whole-repository findings at `2b61799`, before this repair.
 

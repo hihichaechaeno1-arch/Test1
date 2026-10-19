@@ -47,8 +47,9 @@ GitHub ingestion requires `ENABLE_YOUTUBE_SYNC=true` and an explicit `YOUTUBE_CH
 
 ## Documentation
 
-Start at [docs/README.md](docs/README.md). The current build failure and repairs are documented in [repair validation](docs/REPAIR_VALIDATION.md). The [Vercel data-load diagnosis](docs/VERCEL_DATA_LOAD_DIAGNOSIS.md) describes a separate historical missing-column runtime incident.
+Start at [docs/README.md](docs/README.md). For a full current review, see [current-state analysis](docs/CURRENT_STATE_ANALYSIS.md). Build repairs are documented in [repair validation](docs/REPAIR_VALIDATION.md). The [Vercel data-load diagnosis](docs/VERCEL_DATA_LOAD_DIAGNOSIS.md) describes a separate historical missing-column runtime incident.
 
+- [Current-state analysis](docs/CURRENT_STATE_ANALYSIS.md)
 - [Remediation status](docs/REMEDIATION.md)
 - [User guide](docs/USER_GUIDE.md)
 - [Architecture](docs/ARCHITECTURE.md)
