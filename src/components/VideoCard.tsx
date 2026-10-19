@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { VideoItem, MemberName } from '../types';
 import { ExternalLink, Play, Flame, Film, Users, Tv, Calendar, Sparkles, Layers } from 'lucide-react';
-import { classifyVideoGenre, getVideoGroup } from '../lib/videoData';
+import { getVideoGroup } from '../lib/videoData';
 
 interface VideoCardProps {
   video: VideoItem;
@@ -17,12 +17,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({
   video,
   selectedMembers,
 }) => {
-  const isShorts = video.type === 'shorts' || (video.genre || classifyVideoGenre(video.title, video.description, video.channel, video.url, video.type)) === 'shorts';
+  const genre = getVideoGroup(video);
+  const isShorts = genre === 'shorts';
   const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const Card = video.isSample ? 'article' : 'a';
-  const genre = video.genre || classifyVideoGenre(video.title, video.description, video.channel, video.url, video.type);
-  const group = video.group || getVideoGroup(video);
 
   return (
     <Card
@@ -62,7 +61,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           {genre === 'mv' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-600/95 text-white tracking-wide shadow-md backdrop-blur-xs">
               <Film className="w-3.5 h-3.5 fill-white text-white" />
-              官方 MV
+              音樂錄影帶
             </span>
           )}
           {genre === 'shorts' && (
@@ -80,13 +79,13 @@ export const VideoCard: React.FC<VideoCardProps> = ({
           {genre === 'original' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600/95 text-white tracking-wide shadow-md backdrop-blur-xs">
               <Sparkles className="w-3.5 h-3.5 fill-white text-white" />
-              自製團綜 / Vlog
+              綜藝 / Vlog
             </span>
           )}
           {genre === 'other' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-700/95 text-white tracking-wide shadow-md backdrop-blur-xs">
               <Layers className="w-3.5 h-3.5 text-purple-200" />
-              其他官方影音
+              其他影音
             </span>
           )}
         </div>
@@ -94,7 +93,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
         {/* If Shorts, special visual indicator */}
         {isShorts && (
           <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-black/60 text-white text-[10px] font-medium backdrop-blur-xs">
-            9:16 直式短影音
+            Shorts / 挑戰
           </div>
         )}
 
@@ -142,7 +141,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
 
             <div className="flex flex-wrap gap-1.5">
               {video.members.map((memberName) => {
-                const isSelected = (selectedMembers as string[]).includes(memberName);
+                const isSelected = selectedMembers.includes(memberName);
                 return (
                   <span
                     key={memberName}

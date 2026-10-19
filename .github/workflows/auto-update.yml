@@ -4,41 +4,41 @@ on:
   schedule:
     - cron: '0 0,12 * * *'
   workflow_dispatch:
-    inputs:
-      sync_mode:
-        description: '選擇同步模式：full_backfill (補齊出道至今所有舊片及Playlist) / incremental (日常更新)'
-        required: false
-        default: 'full_backfill'
-        type: choice
-        options:
-          - full_backfill
-          - incremental
+
+permissions:
+  contents: read
+
+concurrency:
+  group: youtube-video-sync
+  cancel-in-progress: false
 
 jobs:
   update-videos:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 22
-
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund --legacy-peer-deps
-
-      - name: Run YouTube Sync Script
+          node-version: '22'
+      - name: Validate sync configuration
         env:
+          ENABLE_YOUTUBE_SYNC: ${{ vars.ENABLE_YOUTUBE_SYNC }}
+          YOUTUBE_CHANNEL_IDS: ${{ vars.YOUTUBE_CHANNEL_IDS }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SYNC_MODE: ${{ github.event.inputs.sync_mode || 'full_backfill' }}
-        run: node scripts/fetch-youtube.cjs
+        run: node scripts/check-youtube-sync.cjs
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.2'
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+      - name: Import bounded recent videos from approved channels
+        env:
+          ENABLE_YOUTUBE_SYNC: ${{ vars.ENABLE_YOUTUBE_SYNC }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          YOUTUBE_CHANNEL_IDS: ${{ vars.YOUTUBE_CHANNEL_IDS }}
+        run: node scripts/fetch-youtube.cjs --mode=recent --max-pages=3 --max-requests=39

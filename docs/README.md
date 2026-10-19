@@ -1,5 +1,7 @@
 # Project documentation
 
+**Current repair:** start with [Vercel build repair and validation](REPAIR_VALIDATION.md). It supersedes older passing-test, runtime-version, and uncommitted-state claims. Historical incident reports remain evidence of their specific inspected revisions, not current production status.
+
 ## Reading paths
 
 | Audience | Start here |
@@ -10,6 +12,9 @@
 | Release owner | [Remediation status](REMEDIATION.md) → [Operations](DEPLOYMENT_OPERATIONS.md) → [Content register](CONTENT_PROVENANCE.md) |
 
 ## Document map
+
+- [Current repair/validation](REPAIR_VALIDATION.md): verified build repair, current contracts, clean installation, browser runner, release checklist, and residual risks.
+- [51-finding baseline review](COMPREHENSIVE_REVIEW.md): whole-repository findings at `2b61799`, before this repair.
 
 - [Remediation status](REMEDIATION.md): issue-by-issue code fixes, verification, and remaining blockers.
 - [User guide](USER_GUIDE.md): active behavior and unverified-tag semantics.
@@ -31,7 +36,7 @@
 
 The original review analyzed commit `d93b74b1035af155e08902877b8cc046c14649b9` on 2026-10-02. Source remediation was then applied in the documented issue order. The owner subsequently committed/pushed the prior repairs in `fecf14c` and ran the workflow. The newest importer compatibility/error-diagnostic repair remains local; see [write-failure diagnosis](YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md).
 
-Current implementation documents describe the modified working tree. The original review is historical, not a list of still-unfixed code defects. [Remediation status](REMEDIATION.md) is authoritative for issue progress.
+Current implementation documents describe the modified working tree. The original review is historical, not a list of still-unfixed code defects. [Repair validation](REPAIR_VALIDATION.md) is authoritative for the current working-tree repair scope and verification. [Remediation status](REMEDIATION.md) retains the earlier 15-issue lineage.
 
 Validation includes local regression tests, type-checking/build, frozen Bun installation, a clean npm diagnostic installation, and mocked Chromium browser checks. No live Supabase schema, database policy, production data, deployment, or channel ownership was verified. The later [skip diagnosis](YOUTUBE_SYNC_DIAGNOSIS.md) inspected GitHub run history, repository variables, and secret names read-only; no credential values were retrieved. No real YouTube import was executed. The subsequent [Vercel diagnosis](VERCEL_DATA_LOAD_DIAGNOSIS.md) performed read-only requests with the deployed browser's public anon key, confirming seven valid legacy rows and an absent optional description column. No database values or keys were printed, and no database writes, migrations, or deployments were performed.
 

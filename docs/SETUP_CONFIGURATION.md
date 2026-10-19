@@ -17,7 +17,7 @@ Edit the copied environment file before starting if using live data. Open `http:
 
 Retained package versions are pinned and the Bun lockfile has been regenerated. Unused direct esbuild, Express, Gemini, dotenv, motion, autoprefixer, and Express types were removed. A clean npm diagnostic installation now passes without `--legacy-peer-deps`; npm does not consume `bun.lock`, so Bun remains the supported reproducible installer.
 
-Local installation verification disabled dependency lifecycle scripts for safety. CI uses the normal frozen installation; lifecycle-script behavior on a fresh CI runner remains to be observed by the owner.
+The current repair passed a normal frozen installation, tests, and build in an isolated macOS checkout with Node 22.23.3/Bun 1.4.2. Actual Linux CI/Vercel execution remains to be verified; see [repair evidence](REPAIR_VALIDATION.md).
 
 ## 2. Public frontend variables
 
@@ -52,6 +52,7 @@ NEXT_PUBLIC_YOUTUBE_CHANNEL_ID=
 The script does not load dotenv automatically. For an intentional staging run, create an ignored private `.env.sync.local` containing:
 
 ```dotenv
+ENABLE_YOUTUBE_SYNC=true
 YOUTUBE_API_KEY=your-private-api-key
 SUPABASE_URL=https://your-staging-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-private-server-key
@@ -68,7 +69,7 @@ node --env-file=.env.sync.local scripts/fetch-youtube.cjs
 
 **This consumes quota and writes/updates database metadata. There is no dry-run option.** Do not run against production before schema/security validation.
 
-Missing settings or an absent allowlist fail closed. No guessed channel IDs or channel-title-based official discovery remain.
+Missing settings, a non-exact/absent `ENABLE_YOUTUBE_SYNC=true` approval, or an absent allowlist fail closed. `SUPABASE_URL` must be an explicit HTTPS project origin; there is no default project or anonymous-key fallback. No guessed channel IDs or channel-title-based official authorization remain.
 
 ## 4. GitHub Actions configuration
 
@@ -87,7 +88,7 @@ Configure privately:
 | Repository variable | `YOUTUBE_CHANNEL_IDS` |
 | Repository variable | `ENABLE_YOUTUBE_SYNC` — set to `true` only after staging approval. |
 
-The importer workflow serializes writers, grants only `contents: read` to the workflow token, and has a 20-minute timeout. Both workflows use the locally tested Node 24.18.0 and Bun 1.4.2. Action versions are pinned to major tags, not immutable SHAs; a later supply-chain hardening pass may pin audited revisions.
+The importer workflow serializes writers, grants only `contents: read` to the workflow token, and has a 20-minute timeout. Both workflows use Node 22 and Bun 1.4.2; clean local validation used Node 22.23.3. Action versions are pinned to major tags, not immutable SHAs; a later supply-chain hardening pass may pin audited revisions.
 
 No remote variable, secret, workflow execution, or schedule was changed during remediation or the skip diagnosis. On 2026-10-04, read-only GitHub inspection confirmed that all three secret names exist but neither required repository variable exists. Secret values and database readiness were not inspected.
 
@@ -125,7 +126,7 @@ bun run build
 bun run preview
 ```
 
-`build` already runs `lint` first. `lint` is TypeScript checking, not ESLint. Preview is normally on port 4173 and is for local inspection, not production hosting.
+`build` already runs the same TypeScript check first. `vercel.json` specifies Vite, frozen Bun installation, the type-gated build, and `dist` output; configure Vercel Root Directory to repository root and Node 22.x. See [release checklist](REPAIR_VALIDATION.md#vercel-release-checklist). `lint` is TypeScript checking, not ESLint. Preview is normally on port 4173 and is for local inspection, not production hosting.
 
 ## Official references
 

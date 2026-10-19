@@ -1,469 +1,234 @@
-const fs = require('fs');
-const path = require('path');
-const { createClient } = require('@supabase/supabase-js');
+/** @license SPDX-License-Identifier: Apache-2.0 */
 
-const YOUTUBE_API_KEY = (process.env.YOUTUBE_API_KEY || '').trim();
-const SUPABASE_URL = (
-  process.env.SUPABASE_URL ||
-  process.env.VITE_SUPABASE_URL ||
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  'https://lxattufhisuyyhbtmmuf.supabase.co'
-).trim();
+// No SDK/config side effects on import: the preflight runs before dependency installation.
+const { detectMembers, classifyVideoGenre } = require('../src/lib/videoMetadata.cjs');
 
-const SUPABASE_KEY = (
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  ''
-).trim();
-
-const SYNC_MODE = process.env.SYNC_MODE || 'full_backfill';
-const DEBUT_DATE_ISO = '2025-01-01T00:00:00Z';
-
-const TRACKED_PLAYLISTS = [
-  {
-    name: 'Hearts2Hearts Curated Playlist',
-    playlistId: 'PLHhitGId-8_9aLsTwJimaXZcjGBlPzrlh',
-    skipKeywordFilter: true
-  }
-];
-
-const MEMBER_PATTERNS = {
-  'Carmen': [/\bcarmen\b/i, /카르멘/],
-  'Jiwoo': [/\bjiwoo\b/i, /지우/],
-  'Yuha': [/\byuha\b/i, /유하/],
-  'Stella': [/\bstella\b/i, /스텔라/],
-  'Juun': [/\bjuun\b/i, /(?<![가-힣])준(?![가-힣])/],
-  'A-na': [/\ba-na\b/i, /\bana\b/i, /에이나/],
-  'Ian': [/\bian\b/i, /이안/],
-  'Ye-on': [/\bye-on\b/i, /\byeon\b/i, /예온/]
-};
-
-const ALL_MEMBERS = Object.keys(MEMBER_PATTERNS);
-
-function detectMembers(title = '', description = '') {
-  // 優先檢查標題
-  const matchedInTitle = [];
-  for (const [name, patterns] of Object.entries(MEMBER_PATTERNS)) {
-    if (patterns.some(regex => regex.test(String(title)))) {
-      matchedInTitle.push(name);
-    }
-  }
-  if (matchedInTitle.length > 0 && matchedInTitle.length < ALL_MEMBERS.length) {
-    return matchedInTitle;
-  }
-
-  const content = `${title} ${String(description || '').slice(0, 200)}`;
-  const matched = [];
-  for (const [name, patterns] of Object.entries(MEMBER_PATTERNS)) {
-    if (patterns.some(regex => regex.test(content))) {
-      matched.push(name);
-    }
-  }
-  return matched.length > 0 ? matched : ALL_MEMBERS;
+function validTimestamp(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(value) &&
+    Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value.slice(0, 10);
 }
 
-function isOfficialChannelName(channelTitle = '') {
-  const c = String(channelTitle || '').toLowerCase();
-  return c.includes('hearts2hearts') || c.includes('hearts 2 hearts') || c.includes('하츠투하츠');
-}
-
-// 自動將影片歸入 5 大類別：'mv' | 'shorts' | 'stage' | 'original' | 'other'
-function classifyVideoType(title = '', description = '', channelTitle = '', forceOfficialShorts = false) {
-  const t = String(title).toLowerCase();
-  const d = String(description).toLowerCase();
-  const c = String(channelTitle).toLowerCase();
-  const isOfficial = isOfficialChannelName(c);
-
-  // 1. Shorts / Challenges：只限 Hearts2Hearts 官方頻道！
-  const hasShortsKeyword =
-    forceOfficialShorts ||
-    t.includes('#shorts') ||
-    /\bshorts\b/i.test(t) ||
-    t.includes('challenge') ||
-    t.includes('챌린지') ||
-    d.includes('#shorts');
-
-  if (isOfficial && hasShortsKeyword) {
-    return 'shorts';
+function loadConfig(env = process.env, args = process.argv.slice(2)) {
+  for (const name of ['YOUTUBE_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'YOUTUBE_CHANNEL_IDS']) {
+    if (!env[name]?.trim()) throw new Error(`Missing required setting: ${name}`);
   }
-
-  // 2. Official MV (排除 MV Commentary、Teaser、Behind、Reaction 等)
-  const isNotPureMv =
-    /(commentary|코멘터리|teaser|티저|trailer|트레일러|behind|비하인드|making|메이킹|reaction|리액션|interview|인터뷰|recording|녹음|unboxing|언박싱|lyric|가사|cover|커버|fancam|직캠|facecam|페이스캠|stage|inkigayo|인기가요|뮤직뱅크|음악중심|엠카운트다운|dance practice|안무|cheer guide|응원법)/i.test(
-      t
-    );
-  if (
-    !isNotPureMv &&
-    (/\bmv\b/i.test(t) ||
-      t.includes('m/v') ||
-      t.includes('music video') ||
-      t.includes('뮤직비디오') ||
-      t.includes('official video') ||
-      t.includes('track video'))
-  ) {
-    return 'mv';
+  let target;
+  try { target = new URL(env.SUPABASE_URL); } catch { throw new Error('Invalid SUPABASE_URL'); }
+  if (target.protocol !== 'https:' || target.username || target.password || target.search || target.hash || target.pathname !== '/') {
+    throw new Error('Invalid SUPABASE_URL');
   }
-
-  // 3. Stage / Performance (包含 SBS Entertainment 的舞台片)
-  const isPureVarietyTitle =
-    /(아는\s*형님|knowing\s*bros|런닝맨|running\s*man|아이돌\s*인간극장|돌박이일|워크돌|동네스타k|스브스뉴스|문명특급|살롱드립|집대성|할명수|리무진서비스)/i.test(
-      t
-    );
-  const isBehindOrVlog =
-    /(behind|비하인드|making|메이킹|vlog|브이로그|commentary|코멘터리|interview|인터뷰)/i.test(t);
-
-  if (
-    !isBehindOrVlog &&
-    !isPureVarietyTitle &&
-    (/(sbskpop|inkigayo|kbs kpop|mbckpop|mnet|studio choom|the k-pop|all the k-pop|it's live|sbs entertainment)/i.test(c) ||
-      /(stage|fancam|직캠|facecam|페이스캠|인기가요|뮤직뱅크|음악중심|엠카운트다운|music bank|music core|m countdown|inkigayo|dance practice|안무|choreography|performance|퍼포먼스|showcase|쇼케이스|concert|콘서트|live clip|교차편집|원테이크|one take|fullcam|입덕직캠|가요대전|gayo daejeon|무대)/i.test(
-        t
-      ))
-  ) {
-    return 'stage';
+  const channelIds = [...new Set(env.YOUTUBE_CHANNEL_IDS.split(',').map(id => id.trim()))];
+  if (channelIds.some(id => !/^UC[A-Za-z0-9_-]{22}$/.test(id))) {
+    throw new Error('YOUTUBE_CHANNEL_IDS must contain approved channel IDs, not names or URLs');
   }
-
-  // 4. Variety Show
-  if (
-    /(knowingbros|아는형님|런닝맨|jtbcentertainment)/i.test(c) ||
-    /(vlog|브이로그|\bep\.|\bepisode\b|reality|리얼리티|자컨|diary|다이어리|\blog\b|아는\s*형님|knowing\s*bros|런닝맨|running\s*man|아이돌\s*인간극장|예능|variety)/i.test(
-      t
-    ) ||
-    isPureVarietyTitle
-  ) {
-    return 'original';
+  const options = {};
+  const allowed = ['mode', 'max-pages', 'max-requests', 'published-after', 'published-before', 'page-token'];
+  for (const arg of args) {
+    const match = /^--([^=]+)=(.+)$/.exec(arg);
+    if (!match || !allowed.includes(match[1])) throw new Error('Unknown sync option; use --name=value');
+    options[match[1]] = match[2];
   }
-
-  // 5. Other Video (包含 MV Commentary 等)
-  return 'other';
-}
-
-function isH2HRelated(title) {
-  const titleText = String(title || '').toLowerCase();
-  const groupKeywords = ['hearts2hearts', 'hearts 2 hearts', '하츠투하츠'];
-  return groupKeywords.some(k => titleText.includes(k));
-}
-
-function loadChannels() {
-  const configPath = path.join(__dirname, '..', 'config', 'youtube-channels.json');
-  try {
-    if (fs.existsSync(configPath)) {
-      const raw = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-      return Array.isArray(raw) ? raw : (raw.channels || []);
-    }
-  } catch (err) {
-    console.warn('⚠️ 讀取 config/youtube-channels.json 失敗:', err.message);
+  const mode = options.mode || 'recent';
+  if (!['recent', 'backfill'].includes(mode)) throw new Error('Mode must be recent or backfill');
+  const maxPages = Number(options['max-pages'] || 3);
+  const maxRequests = Number(options['max-requests'] || 39);
+  if (!Number.isInteger(maxPages) || maxPages < 1 || !Number.isInteger(maxRequests) || maxRequests < 1 || maxRequests > 99) {
+    throw new Error('Positive integer page/request limits required; max-requests cannot exceed 99');
   }
-  return [];
-}
-
-async function resolveChannelId(channel) {
-  if (!channel) return null;
-  if (channel.channelId && String(channel.channelId).startsWith('UC')) {
-    return channel.channelId;
+  for (const name of ['published-after', 'published-before']) {
+    if (options[name] && !validTimestamp(options[name])) throw new Error(`Invalid ${name} timestamp`);
   }
-  if (channel.id && String(channel.id).startsWith('UC')) {
-    return channel.id;
+  if (mode === 'backfill' && !options['published-before']) throw new Error('Backfill requires --published-before');
+  if (options['published-before'] && options['published-after'] && Date.parse(options['published-after']) >= Date.parse(options['published-before'])) {
+    throw new Error('published-after must precede published-before');
   }
-  const handle = channel.handle || channel.customUrl || '';
-  if (handle.startsWith('@')) {
-    try {
-      const url = `https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${encodeURIComponent(handle)}&key=${YOUTUBE_API_KEY}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.items && data.items[0]?.id) {
-        return data.items[0].id;
-      }
-    } catch (err) {
-      console.warn(`⚠️ 反查 Handle (${handle}) 失敗:`, err.message);
-    }
-  }
-  return null;
-}
-
-async function saveVideoToSupabase(
-  supabase,
-  { videoId, title, description, publishedAt, channelTitle, forceOfficialShorts = false }
-) {
-  if (!videoId || String(videoId).length < 5) return false;
-  if (title === 'Private video' || title === 'Deleted video') return false;
-
-  const isOfficial = isOfficialChannelName(channelTitle);
-  const type = classifyVideoType(title, description, channelTitle, forceOfficialShorts);
-  const isShorts = type === 'shorts' || forceOfficialShorts;
-
-  const videoUrl = isShorts
-    ? `https://www.youtube.com/shorts/${videoId}`
-    : `https://www.youtube.com/watch?v=${videoId}`;
-  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  const shortsUrl = `https://www.youtube.com/shorts/${videoId}`;
-
-  const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-  const members = detectMembers(title, description);
-  const pubDate = (publishedAt || '').split('T')[0] || '2025-02-24';
-
-  // 同時檢查 watch?v= 同 /shorts/ 係咪已經存在喺資料庫
-  const { data: existingList, error: selectErr } = await supabase
-    .from('videos')
-    .select('id, type, url')
-    .in('url', [watchUrl, shortsUrl]);
-
-  if (selectErr) {
-    console.error(`⚠️ 查詢資料庫錯誤 [${title}]:`, selectErr.message);
-    return false;
-  }
-
-  if (existingList && existingList.length > 0) {
-    const existing = existingList[0];
-    // 如果之前被當成普通 video 入咗庫，但其實係官方 Shorts（或者分類改咗），自動更新修復！
-    if (existing.type !== type || (isShorts && existing.url !== shortsUrl)) {
-      await supabase
-        .from('videos')
-        .update({ type, url: videoUrl, members })
-        .eq('id', existing.id);
-      console.log(`🔄 [自動修正分類] [${type.toUpperCase()}] [${pubDate}] ${title}`);
-    }
-    return false;
-  }
-
-  const basePayload = {
-    title,
-    url: videoUrl,
-    thumbnail,
-    channel: isOfficial ? 'Hearts2Hearts' : (channelTitle || 'Hearts2Hearts'),
-    type,
-    published_at: pubDate,
-    members
+  if (options['page-token'] && channelIds.length !== 1) throw new Error('Page-token resume requires exactly one channel');
+  return {
+    apiKey: env.YOUTUBE_API_KEY.trim(), supabaseUrl: target.origin, serviceKey: env.SUPABASE_SERVICE_ROLE_KEY.trim(),
+    channelIds, mode, maxPages, maxRequests, publishedAfter: options['published-after'],
+    publishedBefore: options['published-before'], pageToken: options['page-token'] || '',
   };
-
-  const { error } = await supabase.from('videos').insert({
-    ...basePayload,
-    description: description || ''
-  });
-
-  if (error) {
-    const { error: retryErr } = await supabase.from('videos').insert(basePayload);
-    if (retryErr) {
-      console.error(`❌ 寫入失敗 [${title}]:`, retryErr.message);
-      return false;
-    }
-  }
-
-  console.log(`🎉 [新增入庫] [${type.toUpperCase()}] [${pubDate}] [${channelTitle}] ${title}`);
-  return true;
 }
 
-async function syncPlaylistById(
-  supabase,
-  playlistId,
-  labelName,
-  maxPages,
-  skipKeywordFilter = false,
-  forceOfficialShorts = false
-) {
-  let nextPageToken = '';
-  let page = 0;
-  let added = 0;
-
-  console.log(`\n📂 開始掃描播放清單 [${labelName}] (ID: ${playlistId}, 最多翻 ${maxPages} 頁)...`);
-
-  do {
-    page++;
-    let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=50&key=${YOUTUBE_API_KEY}`;
-    if (nextPageToken) url += `&pageToken=${nextPageToken}`;
-
+async function searchPage(url, fetchImpl, sleep) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let response;
     try {
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (data.error) {
-        console.error(`⚠️ Playlist 讀取錯誤 (${labelName}):`, data.error.message);
-        break;
-      }
-
-      const items = data.items || [];
-      if (items.length === 0) break;
-
-      for (const item of items) {
-        const snippet = item.snippet || {};
-        const videoId = snippet.resourceId?.videoId || item.contentDetails?.videoId;
-        const title = snippet.title || '';
-        const description = snippet.description || '';
-        const publishedAt = item.contentDetails?.videoPublishedAt || snippet.publishedAt || '';
-        const channelTitle = snippet.videoOwnerChannelTitle || snippet.channelTitle || labelName;
-
-        if (!skipKeywordFilter && !isH2HRelated(title)) {
-          continue;
-        }
-
-        const ok = await saveVideoToSupabase(supabase, {
-          videoId,
-          title,
-          description,
-          publishedAt,
-          channelTitle,
-          forceOfficialShorts
-        });
-        if (ok) added++;
-      }
-
-      nextPageToken = data.nextPageToken || '';
-    } catch (err) {
-      console.error(`⚠️ 請求異常 (${labelName}):`, err.message);
-      break;
+      response = await fetchImpl(url, { signal: AbortSignal.timeout(15000) });
+    } catch {
+      if (attempt < 2) { await sleep(250 * 2 ** attempt); continue; }
+      throw new Error('YouTube network request failed or timed out');
     }
-  } while (nextPageToken && page < maxPages);
-
-  console.log(`✅ [${labelName}] 掃描咗 ${page} 頁，共新增 ${added} 條影片`);
-  return added;
-}
-
-async function syncChannelSearch(supabase, channelId, channelName, maxPages) {
-  let nextPageToken = '';
-  let page = 0;
-  let added = 0;
-
-  console.log(`\n🔍 在電視台頻道 [${channelName}] 內搜尋 Hearts2Hearts (最多翻 ${maxPages} 頁)...`);
-
-  do {
-    page++;
-    let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&q=${encodeURIComponent('Hearts2Hearts')}&type=video&order=date&maxResults=50&publishedAfter=${DEBUT_DATE_ISO}&key=${YOUTUBE_API_KEY}`;
-    if (nextPageToken) url += `&pageToken=${nextPageToken}`;
-
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (data.error) {
-        console.error(`⚠️ Search API 錯誤 (${channelName}):`, data.error.message);
-        break;
-      }
-
-      const items = data.items || [];
-      if (items.length === 0) break;
-
-      for (const item of items) {
-        const videoId = item.id?.videoId;
-        const snippet = item.snippet || {};
-        if (snippet.channelId !== channelId) continue;
-
-        const title = snippet.title || '';
-        const description = snippet.description || '';
-        const publishedAt = snippet.publishedAt || '';
-        const channelTitle = snippet.channelTitle || channelName;
-
-        if (!isH2HRelated(title)) continue;
-
-        const ok = await saveVideoToSupabase(supabase, {
-          videoId,
-          title,
-          description,
-          publishedAt,
-          channelTitle,
-          forceOfficialShorts: false
-        });
-        if (ok) added++;
-      }
-
-      nextPageToken = data.nextPageToken || '';
-    } catch (err) {
-      console.error(`⚠️ 搜尋異常 (${channelName}):`, err.message);
-      break;
-    }
-  } while (nextPageToken && page < maxPages);
-
-  console.log(`✅ [${channelName}] 搜尋咗 ${page} 頁，共新增 ${added} 條影片`);
-  return added;
-}
-
-async function main() {
-  console.log(`==================================================`);
-  console.log(`🚀 啟動 YouTube 同步腳本 | 模式: ${SYNC_MODE}`);
-  console.log(`==================================================`);
-
-  if (!YOUTUBE_API_KEY || !SUPABASE_KEY) {
-    console.error('❌ 缺少 YOUTUBE_API_KEY 或 SUPABASE_SERVICE_ROLE_KEY！');
-    process.exit(1);
-  }
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { persistSession: false },
-    realtime: { autoRefreshToken: false, createClient: () => null }
-  });
-
-  let totalAdded = 0;
-
-  for (const pl of TRACKED_PLAYLISTS) {
-    totalAdded += await syncPlaylistById(supabase, pl.playlistId, pl.name, 30, pl.skipKeywordFilter, false);
-  }
-
-  const channels = loadChannels();
-  // 大幅提升官方頻道翻頁上限至 50 頁（可容納 2,500 條片，確保由出道第 1 日開始所有 Shorts 同影片 100% 抓齊！）
-  const officialMaxPages = SYNC_MODE === 'full_backfill' ? 50 : 5;
-  const broadcastMaxPages = SYNC_MODE === 'full_backfill' ? 8 : 2;
-
-  for (const ch of channels) {
-    const name = ch.name || ch.title || ch.handle || 'Unknown Channel';
-    const channelId = await resolveChannelId(ch);
-
-    if (!channelId) {
-      console.warn(`⚠️ 無法解析頻道 ID: ${name}，跳過`);
+    if ((response.status === 429 || response.status >= 500) && attempt < 2) {
+      await sleep(250 * 2 ** attempt);
       continue;
     }
-
-    const isOfficialMain =
-      String(name).toLowerCase().includes('hearts2hearts') ||
-      String(ch.handle || '').toLowerCase().includes('hearts2hearts');
-
-    if (isOfficialMain) {
-      // 1. 先掃描官方頻道專屬的 Shorts 播放清單 (UUSH...)，確保出道至今所有官方 Shorts 100% 標記為 shorts！
-      const officialShortsPlaylistId = 'UUSH' + channelId.slice(2);
-      totalAdded += await syncPlaylistById(
-        supabase,
-        officialShortsPlaylistId,
-        `${name} (Official Shorts)`,
-        officialMaxPages,
-        true,
-        true
-      );
-
-      // 2. 再掃描官方頻道全部上傳清單 (UU...)
-      const uploadsPlaylistId = 'UU' + channelId.slice(2);
-      totalAdded += await syncPlaylistById(
-        supabase,
-        uploadsPlaylistId,
-        name,
-        officialMaxPages,
-        true,
-        false
-      );
-    } else {
-      totalAdded += await syncChannelSearch(supabase, channelId, name, broadcastMaxPages);
-    }
+    if (!response.ok) throw new Error('YouTube HTTP failure');
+    let data;
+    try { data = await response.json(); } catch { throw new Error('Invalid YouTube JSON response'); }
+    if (data?.error) throw new Error('YouTube API returned an error');
+    if (!Array.isArray(data?.items)) throw new Error('YouTube response is missing items');
+    return data;
   }
-
-  console.log(`\n==================================================`);
-  console.log(`🎉 同步任務完成！本次共新增 ${totalAdded} 條影片入 Supabase`);
-  console.log(`==================================================`);
 }
+
+function isMissingDescription(error) {
+  if (error?.code === 'PGRST204') {
+    return /^Could not find the 'description' column of 'videos' in the schema cache$/i.test(error.message);
+  }
+  return error?.code === '42703' &&
+    /^(?:column (?:"?videos"?\.)?"?description"? does not exist|column "?description"? of relation "?videos"? does not exist)$/i.test(error.message);
+}
+
+function databaseDiagnostic(error) {
+  const code = typeof error?.code === 'string' && /^(?:[0-9A-Z]{5}|PGRST\d{3})$/.test(error.code)
+    ? error.code : 'unknown';
+  const reasons = {
+    PGRST204: 'schema-column-missing', '42703': 'schema-column-missing',
+    '42501': 'permission-denied', PGRST301: 'authentication-failed',
+    '23502': 'required-value-missing', '23505': 'unique-conflict',
+    '23514': 'check-constraint', '22P02': 'invalid-value',
+  };
+  return { code, reason: reasons[code] || 'database-operation-failed' };
+}
+
+/** Trusted ingestion seam. External HTTP/database services can be injected for offline tests. */
+async function syncVideos({
+  apiKey, channelIds, client, maxPages = 3, maxRequests = 39, mode = 'recent',
+  publishedAfter, publishedBefore, pageToken = '', fetchImpl = fetch,
+  sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), log = console.log,
+}) {
+  const summary = { mode, inserted: 0, updated: 0, skipped: 0, failed: 0, requests: 0, channels: [], metadataOmissions: [] };
+  let includeDescription = true;
+  const writeMetadata = async (record, write) => {
+    const { description, ...required } = record;
+    let result = await write(includeDescription ? record : required);
+    if (includeDescription && isMissingDescription(result.error)) {
+      includeDescription = false;
+      summary.metadataOmissions.push('description');
+      log({ event: 'schema-compatibility', omittedColumn: 'description', reason: 'missing-optional-column' });
+      result = await write(required);
+    }
+    return result;
+  };
+  const boundedFetch = async (...args) => {
+    if (summary.requests >= maxRequests) throw new Error('Search request budget exhausted');
+    summary.requests++;
+    return fetchImpl(...args);
+  };
+  for (const channelId of channelIds) {
+    const result = { channelId, pages: 0, nextPageToken: pageToken, oldestPublishedAt: '', complete: false };
+    summary.channels.push(result);
+    if (summary.requests >= maxRequests) {
+      summary.failed++;
+      log({ event: 'budget-exhausted', channelId });
+      continue;
+    }
+    do {
+      const url = new URL('https://www.googleapis.com/youtube/v3/search');
+      url.search = new URLSearchParams({
+        part: 'snippet', maxResults: '50', order: 'date', type: 'video',
+        key: apiKey, channelId, q: 'Hearts2Hearts',
+      }).toString();
+      if (result.nextPageToken) url.searchParams.set('pageToken', result.nextPageToken);
+      if (publishedAfter) url.searchParams.set('publishedAfter', publishedAfter);
+      if (publishedBefore) url.searchParams.set('publishedBefore', publishedBefore);
+      let data;
+      try { data = await searchPage(url.toString(), boundedFetch, sleep); }
+      catch {
+        summary.failed++;
+        log({ event: 'search-failed', channelId, page: result.pages + 1, reason: 'request-failed-or-budget-exhausted' });
+        break;
+      }
+      result.pages++;
+      for (const item of data.items) {
+        const id = item?.id?.videoId;
+        const snippet = item?.snippet;
+        if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{11}$/.test(id) || snippet?.channelId !== channelId) {
+          summary.skipped++;
+          continue;
+        }
+        if (typeof snippet.title !== 'string' || !snippet.title.trim() || !validTimestamp(snippet.publishedAt)) {
+          summary.failed++;
+          log({ event: 'invalid-metadata', channelId, videoId: id });
+          continue;
+        }
+        if (!result.oldestPublishedAt || snippet.publishedAt < result.oldestPublishedAt) result.oldestPublishedAt = snippet.publishedAt;
+        const description = typeof snippet.description === 'string' ? snippet.description : '';
+        const text = `${snippet.title} ${description}`;
+        const members = detectMembers(text);
+        if (!/hearts\s?2hearts|하츠투하츠|\bh2h\b/iu.test(text) && members.length === 0) {
+          summary.skipped++;
+          continue;
+        }
+        const videoUrl = `https://www.youtube.com/watch?v=${id}`;
+        const inferredGenre = classifyVideoGenre(snippet.title, description, snippet.channelTitle || '');
+        const metadata = {
+          title: snippet.title, thumbnail: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+          channel: typeof snippet.channelTitle === 'string' ? snippet.channelTitle : channelId,
+          type: inferredGenre === 'shorts' ? 'shorts' : 'video',
+          published_at: snippet.publishedAt.split('T')[0], description,
+        };
+        let operation = 'lookup';
+        try {
+          const { data: existing, error: lookupError } = await client.from('videos')
+            .select('id,type,url').in('url', [videoUrl, `https://www.youtube.com/shorts/${id}`]).maybeSingle();
+          if (lookupError) throw lookupError;
+          if (existing) {
+            // Weak text inference must not erase earlier Shorts evidence or editorial tags.
+            if (existing.type === 'shorts' || existing.url === `https://www.youtube.com/shorts/${id}`) metadata.type = 'shorts';
+            operation = 'update';
+            const { error, count } = await writeMetadata({ ...metadata, url: videoUrl }, record =>
+              client.from('videos').update(record, { count: 'exact' }).eq('id', existing.id));
+            if (error) throw error;
+            if (count !== 1) throw new Error('Database update affected no row');
+            summary.updated++;
+          } else {
+            operation = 'insert';
+            const { error } = await writeMetadata({ ...metadata, url: videoUrl, members }, record =>
+              client.from('videos').insert(record));
+            if (error) {
+              if (error.code === '23505') {
+                const { data: winner, error: retryError } = await client.from('videos').select('id').eq('url', videoUrl).maybeSingle();
+                if (retryError) throw retryError;
+                if (!winner) throw error;
+                summary.skipped++;
+              } else throw error;
+            } else summary.inserted++;
+          }
+        } catch (error) {
+          summary.failed++;
+          log({ event: 'database-failed', channelId, videoId: id, operation, ...databaseDiagnostic(error) });
+        }
+      }
+      result.nextPageToken = typeof data.nextPageToken === 'string' ? data.nextPageToken : '';
+      result.complete = !result.nextPageToken;
+      if (result.complete) break;
+    } while (result.pages < maxPages && summary.requests < maxRequests);
+    log({ event: result.complete ? 'channel-finished' : 'channel-incomplete', ...result });
+  }
+  return summary;
+}
+
+module.exports = { detectMembers, loadConfig, syncVideos };
 
 if (require.main === module) {
-  main().catch(err => {
-    console.error('❌ 執行過程發生未預期錯誤:', err);
-    process.exit(1);
+  (async () => {
+    if (process.env.ENABLE_YOUTUBE_SYNC !== 'true') throw new Error('ENABLE_YOUTUBE_SYNC must be exactly true');
+    const config = loadConfig();
+    const { createClient } = require('@supabase/supabase-js');
+    const timedFetch = (input, init = {}) => fetch(input, {
+      ...init, signal: AbortSignal.any([...(init.signal ? [init.signal] : []), AbortSignal.timeout(15000)]),
+    });
+    const client = createClient(config.supabaseUrl, config.serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: timedFetch },
+    });
+    const summary = await syncVideos({ ...config, client });
+    console.log(JSON.stringify({ event: 'sync-summary', ...summary }));
+    if (summary.failed > 0) process.exitCode = 1;
+    else if (config.mode === 'backfill' && summary.channels.some(channel => !channel.complete)) process.exitCode = 2;
+  })().catch(() => {
+    console.error('Sync blocked or failed; check ENABLE_YOUTUBE_SYNC, approved channel IDs, options, and service configuration');
+    process.exitCode = 1;
   });
 }
-
-module.exports = {
-  detectMembers,
-  classifyVideoType,
-  isH2HRelated,
-  loadChannels,
-  resolveChannelId,
-  syncPlaylistById,
-  syncChannelSearch,
-  main
-};

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { H2H_MEMBERS, MOCK_VIDEOS } from './data/h2hData';
-import { MemberMatchMode, MemberName, SortOrder, VideoItem, VideoType, VideoGroup, VideoCategory } from './types';
+import type { MemberMatchMode, MemberName, SortOrder, VideoItem, VideoGenre } from './types';
 import { supabase, supabaseConfigError } from './lib/supabase';
 import { fetchArchiveVideos } from './lib/archive';
 import { MemberSelector } from './components/MemberSelector';
@@ -14,24 +14,18 @@ import { Footer } from './components/Footer';
 import {
   filterVideosByMembers,
   getVideoGroup,
-  isOfficialH2HChannel,
-  isOfficialShortsVideo,
   sortVideoItems,
-  VIDEO_GROUPS,
+  parseViewsCount,
   FIVE_CATEGORIES,
-  classifyVideoGenre,
 } from './lib/videoData';
 import {
   Search,
   Film,
   Flame,
   Heart,
-  Users,
   Youtube,
   Layers,
   Loader2,
-  Database,
-  AlertCircle,
   RefreshCw,
   Sparkles,
   Tv,
@@ -39,15 +33,9 @@ import {
   History,
   TrendingUp,
   ArrowUpDown,
-  Filter,
 } from 'lucide-react';
 
-export type FilterGroup = 'all' | VideoCategory;
-
-/** Filter to ensure videos are valid (includes all 5 categories: MVs, Shorts, Stages, Originals, Others) */
-export const isSearchableVideo = (_video: VideoItem): boolean => {
-  return true;
-};
+export type FilterGroup = 'all' | VideoGenre;
 
 export default function App() {
   // Supabase video data & status state
@@ -76,7 +64,7 @@ export default function App() {
 
   const showDemo = useCallback(() => {
     request.current?.abort();
-    setVideos(MOCK_VIDEOS.filter(isSearchableVideo).map(video => ({ ...video, isSample: true }))
+    setVideos(MOCK_VIDEOS.map(video => ({ ...video, genre: getVideoGroup(video), isSample: true }))
       .sort((a, b) => (b.publishedAt || '').localeCompare(a.publishedAt || '')));
     setDataSource('demo');
     setFetchError(null);
@@ -94,12 +82,10 @@ export default function App() {
       if (!supabase) { showDemo(); return; }
       const rowFormat = import.meta.env.NEXT_PUBLIC_VIDEO_ROW_FORMAT || 'legacy';
       if (rowFormat !== 'legacy' && rowFormat !== 'canonical') throw new Error('影片欄位格式設定無效');
-      const loaded = await fetchArchiveVideos(supabase,
-        AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]), rowFormat);
+      const loaded = await fetchArchiveVideos(supabase, controller.signal, rowFormat);
       if (controller.signal.aborted) return;
-      const searchable = loaded.filter(isSearchableVideo);
-      setVideos(searchable);
-      setDataSource(searchable.length ? 'live' : 'empty');
+      setVideos(loaded);
+      setDataSource(loaded.length ? 'live' : 'empty');
     } catch {
       if (controller.signal.aborted) return;
       setVideos([]);
@@ -137,30 +123,19 @@ export default function App() {
     return filterVideosByMembers(videos, selectedMembers, memberMatchMode);
   }, [selectedMembers, videos, memberMatchMode]);
 
+  const hasViewCounts = videos.some(video => parseViewsCount(video.views) > 0);
   const allCount = memberFilteredBase.length;
-  const mvCount = memberFilteredBase.filter(
-    (v) => (v.genre || classifyVideoGenre(v.title, v.description, v.channel, v.url, v.type)) === 'mv'
-  ).length;
-  const shortsCount = memberFilteredBase.filter(
-    (v) => (v.genre || classifyVideoGenre(v.title, v.description, v.channel, v.url, v.type)) === 'shorts'
-  ).length;
-  const stageCount = memberFilteredBase.filter(
-    (v) => (v.genre || classifyVideoGenre(v.title, v.description, v.channel, v.url, v.type)) === 'stage'
-  ).length;
-  const originalCount = memberFilteredBase.filter(
-    (v) => (v.genre || classifyVideoGenre(v.title, v.description, v.channel, v.url, v.type)) === 'original'
-  ).length;
-  const otherCount = memberFilteredBase.filter(
-    (v) => (v.genre || classifyVideoGenre(v.title, v.description, v.channel, v.url, v.type)) === 'other'
-  ).length;
+  const { mv: mvCount, shorts: shortsCount, stage: stageCount, original: originalCount, other: otherCount } = useMemo(() => {
+    const counts = { mv: 0, shorts: 0, stage: 0, original: 0, other: 0 };
+    for (const video of memberFilteredBase) counts[getVideoGroup(video)]++;
+    return counts;
+  }, [memberFilteredBase]);
 
   // Final filtered list including 5-category filter, search query, and sort order (new, old, popular)
   const filteredVideos = useMemo(() => {
     const matches = memberFilteredBase.filter((video) => {
       // 1. 5-Category filter
-      const genre =
-        video.genre ||
-        classifyVideoGenre(video.title, video.description, video.channel, video.url, video.type);
+      const genre = getVideoGroup(video);
       if (groupFilter !== 'all' && genre !== groupFilter) {
         return false;
       }
@@ -341,7 +316,7 @@ export default function App() {
               }`}
             >
               <Film className="w-3.5 h-3.5 text-rose-500" />
-              <span>官方 MV</span>
+              <span>音樂錄影帶</span>
               {!isLoading && (
                 <span className="text-[11px] font-mono tabular-nums opacity-75">
                   ({mvCount})
@@ -401,7 +376,7 @@ export default function App() {
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-              <span>自製團綜</span>
+              <span>綜藝與 Vlog</span>
               {!isLoading && (
                 <span className="text-[11px] font-mono tabular-nums opacity-75">
                   ({originalCount})
@@ -469,13 +444,14 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setSortOrder('popular')}
+                disabled={!hasViewCounts}
                 aria-pressed={sortOrder === 'popular'}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs font-semibold ${
                   sortOrder === 'popular'
                     ? 'bg-white text-rose-600 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
-                title="依最高觀看次數排序"
+                title={hasViewCounts ? '依最高觀看次數排序' : '目前資料未提供觀看次數'}
               >
                 <TrendingUp className="w-3 h-3 text-amber-500" />
                 <span>熱門</span>
@@ -510,10 +486,10 @@ export default function App() {
                 正在從 Supabase 讀取影片資料庫...
               </h3>
               <p className="mt-1 text-xs text-slate-400">
-                依據發布日期排序載入最新同框內容
+                依據發布日期排序載入成員標籤資料
               </p>
             </div>
-          ) : (
+          ) : dataSource === 'error' ? null : (
             /* Video List Section: Shows all videos if no members selected, or filtered videos if members selected */
             <div className="space-y-6">
               {/* Header Info Bar */}
@@ -533,13 +509,13 @@ export default function App() {
                   <p className="text-xs text-slate-500 mt-1">
                     {selectedMembers.length > 0 ? (
                       <>
-                        <span>{memberMatchMode === 'only' ? '嚴格僅限成員：' : '必須包含標籤：'}</span>
+                        <span>{memberMatchMode === 'only' ? '標籤恰好等於：' : '必須包含標籤：'}</span>
                         <span className="font-semibold text-rose-700 ml-1">
                           {selectedMembers.join(' + ')}
                         </span>
                       </>
                     ) : (
-                      <span>顯示全部影片；可點選上方成員頭像進行同框篩選</span>
+                      <span>顯示全部影片；可點選上方成員頭像篩選未核實標籤</span>
                     )}
                     <span className="text-slate-400 ml-2 hidden sm:inline">{dataSource === 'demo' ? '（示範卡片不提供播放）' : '（點擊卡片將於新分頁開啟 YouTube）'}</span>
                   </p>

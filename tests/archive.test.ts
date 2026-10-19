@@ -91,6 +91,25 @@ for (const format of ['legacy', 'canonical'] as const) {
   });
 }
 
+test('missing response counts still advance to an empty page without losing records', async () => {
+  const rows = [row(1), row(2), row(3)];
+  const api = dataApi(url => {
+    const start = Number(url.searchParams.get('offset') || 0);
+    return Response.json(rows.slice(start, start + 2));
+  });
+  assert.deepEqual((await fetchArchiveVideos(api.client)).map(video => video.id), ['1', '2', '3']);
+  assert.deepEqual(api.requests.map(url => Number(url.searchParams.get('offset'))), [0, 2, 3]);
+});
+
+test('a response arriving after cancellation cannot publish results', async () => {
+  const controller = new AbortController();
+  const api = dataApi(url => {
+    controller.abort();
+    return page(url, [row(1)]);
+  });
+  await assert.rejects(fetchArchiveVideos(api.client, controller.signal), /取消|逾時/);
+});
+
 test('available descriptions are retained without a compatibility retry', async () => {
   const api = dataApi(url => page(url, [{ ...row(1), description: 'Jiwoo rehearsal' }]));
   const videos = await fetchArchiveVideos(api.client);

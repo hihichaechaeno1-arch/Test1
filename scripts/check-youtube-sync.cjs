@@ -24,8 +24,11 @@ function checkWorkflowConfig(env = process.env) {
     try {
       // Reuse the importer's validation; importing its module never starts a sync.
       loadConfig(env, []);
-    } catch {
-      errors.push('YOUTUBE_CHANNEL_IDS must contain approved channel IDs, not names or URLs (comma-separated UC plus 22 valid characters).');
+    } catch (error) {
+      // Only fixed classifications escape this boundary, never submitted values.
+      errors.push(error instanceof Error && error.message === 'Invalid SUPABASE_URL'
+        ? 'SUPABASE_URL must be an explicit HTTPS project origin without credentials, query, or path.'
+        : 'YOUTUBE_CHANNEL_IDS must contain approved channel IDs, not names or URLs (comma-separated UC plus 22 valid characters).');
     }
   }
   return errors;

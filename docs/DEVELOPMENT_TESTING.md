@@ -1,5 +1,7 @@
 # Development and testing
 
+**Current evidence:** [repair validation](REPAIR_VALIDATION.md) records 70 passing tests, strict type-checking/build, clean Node 22/Bun frozen installation, and the checked-in offline Chrome runner. Older numerical/runtime/artifact snapshots below are historical and do not certify the current hosted deployment.
+
 ## 1. Supported workflow
 
 Use Node 22.12+ and Bun 1.4.2. Read [Architecture](ARCHITECTURE.md), [Data model](DATA_MODEL.md), and [Remediation status](REMEDIATION.md) before changing contracts.
@@ -18,7 +20,7 @@ Use local/staging public configuration. Importing the importer module is safe; e
 
 ## 2. Regression suite and seams
 
-The existing tsx dependency loads TypeScript into Node's built-in test runner. No new test-framework dependency was needed. The current suite has **51 passing tests**, including nine workflow-preflight/manifest tests, seven archive compatibility tests, and eight importer compatibility/diagnostic regressions:
+The existing tsx dependency loads TypeScript into Node's built-in test runner. No new test-framework dependency was needed. The current suite has **70 passing tests**, covering validated mapping/classification/sorting, archive compatibility/cancellation, card rendering, importer safety, deployment/lock agreement, and workflow/CLI approval:
 
 | File | Boundary covered |
 | --- | --- |
@@ -31,9 +33,9 @@ The existing tsx dependency loads TypeScript into Node's built-in test runner. N
 
 Tests use real application functions/components and mock external HTTP/database services. They do not start live ingestion, create privileged browser credentials, or mutate a real database.
 
-The component tests render with React's server renderer; they are not a substitute for interactive screen-reader testing. One-off Chromium checks were run separately as described below.
+The component tests render with React's server renderer; they are not a substitute for interactive screen-reader testing. The optional checked-in `scripts/browser-smoke.cjs` provisions isolated production fixtures and blocks provider traffic. With Google Chrome installed, run `npm exec --yes --package=playwright@1.58.2 -- node scripts/browser-smoke.cjs`. It adds no application dependency and leaves project `dist` untouched.
 
-## 3. Current validation results
+## 3. Historical validation snapshots (superseded by repair evidence)
 
 Working tree after remediation; original baseline commit remains `d93b74b1035af155e08902877b8cc046c14649b9` because no commit was made.
 
@@ -107,7 +109,7 @@ These checks require owner-approved service access. Do not embed a service-role/
 ## 6. Remaining test opportunities
 
 - Screen-reader audit and complete keyboard/focus traversal across all active controls.
-- Fresh CI checks on Node 24.18.0/Bun 1.4.2 with normal lifecycle scripts.
+- Actual Linux CI/Vercel checks on Node 22/Bun 1.4.2; clean normal-install macOS validation already passes.
 - Large/concurrently changing archives, cursor strategy, memory/render performance.
 - Real source freshness and unavailable/deleted video handling.
 - Backfill/checkpoint policy beyond bounded manual continuation.

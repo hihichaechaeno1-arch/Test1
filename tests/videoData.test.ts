@@ -63,38 +63,54 @@ test('malformed rows, playback hosts, and impossible dates are rejected', () => 
   }
 });
 
-test('videos are classified into 4 distinct groups: official, shorts, stage, and others', () => {
-  // 1. Official Hearts2Hearts channel long-form videos (MV, official variety shows, dance practice, vlogs)
-  assert.equal(getVideoGroup({ channel: 'Hearts2Hearts 官方頻道', type: 'video', title: '【MV】Heart Beat Echo' }), 'official');
-  assert.equal(getVideoGroup({ channel: 'Hearts2Hearts 官方頻道', type: 'video', title: '【團綜】H2H 宿舍大解密 EP.01' }), 'official');
-  assert.equal(getVideoGroup({ channel: 'Hearts2Hearts', type: 'video', title: 'Dance Practice' }), 'official');
-  assert.equal(getVideoGroup({ channel: 'Hearts2Hearts', type: 'video', title: 'Hearts2Hearts 하츠투하츠 \'Moonride\' MV' }), 'official');
-  assert.equal(getVideoGroup({ channel: 'Hearts2Hearts', type: 'video', title: 'ICONIC POWER RACE | 둘셋하투하 EP.4' }), 'official');
-  assert.equal(getVideoGroup({ channel: 'Hearts2Hearts', type: 'video', title: 'Hearts2Hearts \'15-LOVE\' Dance Practice BH2ND' }), 'official');
-  assert.equal(getVideoGroup({ channel: 'H2H 官方', type: 'video', title: '琴房隨筆 VLOG' }), 'official');
+test('stored tags and explicit unknown membership survive title and description guesses', () => {
+  const row = { youtube_id: 'abcdefghijk', title: 'Carmen performance', description: 'Stella and Ian' };
+  assert.deepEqual(mapSupabaseRowToVideoItem({ ...row, members: ['Jiwoo', 'Yuha'] }).members, ['Jiwoo', 'Yuha']);
+  assert.deepEqual(mapSupabaseRowToVideoItem({ ...row, members: [] }).members, []);
+  assert.deepEqual(mapSupabaseRowToVideoItem(row).members, []);
+  assert.deepEqual(mapSupabaseRowToVideoItem({ ...row, members: ['constructor', '__proto__', 'toString'] }).members, []);
+  assert.deepEqual(mapSupabaseRowToVideoItem({ ...row, members: 'a_na,에이나,ye_on' }).members, ['A-na', 'Ye-on']);
+});
 
-  // 2. Official Shorts (Shorts specifically from the official Hearts2Hearts channel, including real challenge titles without literal #shorts word)
-  assert.equal(getVideoGroup({ channel: 'Hearts2Hearts 官方頻道', type: 'shorts', title: '舞蹈手勢挑戰' }), 'shorts');
-  assert.equal(getVideoGroup({ channel: 'Hearts2Hearts', type: 'video', title: '打歌後台 #shorts' }), 'shorts');
-  assert.equal(getVideoGroup({ channel: 'H2H 官方頻道', type: 'shorts', title: '【Shorts】隊長反差萌' }), 'shorts');
-  assert.equal(getVideoGroup({ channel: 'Hearts2Hearts', type: 'video', title: 'different #Hearts2Hearts #하츠투하츠 #H2H #JIWOO #JUUN' }), 'shorts');
-  assert.equal(getVideoGroup({ channel: 'Hearts2Hearts', type: 'video', title: 'like if I can\'t help falling in love with you? #Hearts2Hearts #H2H #CARMEN #STELLA' }), 'shorts');
-  assert.equal(getVideoGroup({ channel: 'Hearts2Hearts', type: 'video', title: 'one two check #Hearts2Hearts #H2H #A_NA #IAN' }), 'shorts');
+test('YouTube identities require exact supported hosts and complete IDs', () => {
+  for (const url of ['https://notyoutube.com/watch?v=abcdefghijk', 'https://youtube.com.evil.example/watch?v=abcdefghijk',
+    'https://youtube.com/shorts/abcdefghijkl', 'javascript:abcdefghijk']) {
+    assert.throws(() => mapSupabaseRowToVideoItem({ url }), /YouTube identity/);
+  }
+  for (const url of ['https://youtube.com/watch?list=fixture&v=abcdefghijk', 'https://youtube.com/live/abcdefghijk']) {
+    assert.equal(mapSupabaseRowToVideoItem({ url }).youtubeId, 'abcdefghijk');
+  }
+  const mapped = mapSupabaseRowToVideoItem({ id: 0, youtube_id: 'abcdefghijk', thumbnail: 'javascript:bad' });
+  assert.equal(mapped.id, '0');
+  assert.equal(mapped.channel, '未提供頻道名稱');
+  assert.equal(mapped.views, '');
+  assert.equal(mapped.thumbnailUrl, 'https://img.youtube.com/vi/abcdefghijk/hqdefault.jpg');
+});
 
-  // 3. Stage & Fancam (Music shows, broadcast stages, fancams, relay dance)
-  assert.equal(getVideoGroup({ channel: 'SBSKPOP X INKIGAYO', type: 'video', title: 'Heart Beat Echo 現場舞台' }), 'stage');
-  assert.equal(getVideoGroup({ channel: 'SBSKPOP', type: 'shorts', title: 'Inkigayo Fancam Short' }), 'stage');
-  assert.equal(getVideoGroup({ channel: 'Mnet K-POP', type: 'video', title: 'Carmen 4K 個人直拍 Fancam' }), 'stage');
-  assert.equal(getVideoGroup({ channel: 'STUDIO CHOOM', type: 'video', title: 'BE ORIGINAL 合作舞台' }), 'stage');
-  assert.equal(getVideoGroup({ channel: 'it\'s Live', type: 'video', title: '樂團生唱現場' }), 'stage');
-  assert.equal(getVideoGroup({ channel: 'M2', type: 'video', title: 'Jiwoo 接力舞 Relay Dance #shorts' }), 'stage');
+test('legacy genre values normalize without conflating format and category', () => {
+  for (const type of ['mv', 'stage', 'original', 'other']) {
+    const mapped = mapSupabaseRowToVideoItem({ youtube_id: 'abcdefghijk', title: 'Clip', type });
+    assert.equal(mapped.type, 'video');
+    assert.equal(mapped.genre, type);
+  }
+});
 
-  // 4. Others (External variety shows, interviews, external shorts, etc.)
-  assert.equal(getVideoGroup({ channel: '아는형님 Knowingbros', type: 'video', title: '轉學生 Hearts2Hearts 爆笑個人技' }), 'others');
-  assert.equal(getVideoGroup({ channel: '런닝맨 - 스브스 공식 채널', type: 'video', title: 'Running Man 搶鈴遊戲' }), 'others');
-  assert.equal(getVideoGroup({ channel: 'JTBC Entertainment', type: 'video', title: 'Idol Room 偶像大訪談' }), 'others');
-  assert.equal(getVideoGroup({ channel: '1theK', type: 'shorts', title: '【Shorts】Stella 表情切換挑戰' }), 'others');
-  assert.equal(getVideoGroup({ channel: 'K-POP ON! Spotify', type: 'shorts', title: '隨機舞蹈挑戰 #shorts' }), 'others');
+test('five content categories are independent of claims about official ownership', () => {
+  const cases = [
+    [{ channel: 'Hearts2Hearts', type: 'video', title: '【MV】Heart Beat Echo' }, 'mv'],
+    [{ channel: 'Hearts2Hearts', title: '團綜 EP.01' }, 'original'],
+    [{ channel: 'Hearts2Hearts', title: 'Dance Practice' }, 'stage'],
+    [{ channel: 'Hearts2Hearts', title: 'Dance Practice BH2ND (Behind)' }, 'other'],
+    [{ channel: 'Hearts2Hearts', type: 'shorts', title: 'Cute moment' }, 'shorts'],
+    [{ channel: '1theK', type: 'shorts', title: 'Stella challenge' }, 'shorts'],
+    [{ channel: 'M2', title: 'Relay Dance #shorts' }, 'shorts'],
+    [{ channel: 'Mnet K-POP', title: 'Carmen 4K Fancam' }, 'stage'],
+    [{ channel: 'SBS Entertainment', title: 'Interview (Behind)' }, 'other'],
+    [{ channel: '아는형님 Knowingbros', title: 'Hearts2Hearts 방문' }, 'original'],
+    [{ channel: 'Hearts2Hearts', title: 'different #Hearts2Hearts #JIWOO' }, 'other'],
+    [{ channel: 'Unofficial Hearts2Hearts Fan', title: 'Unlabeled clip' }, 'other'],
+  ] as const;
+  for (const [video, expected] of cases) assert.equal(getVideoGroup(video), expected);
 });
 
 test('parseViewsCount extracts numeric counts accurately across varied formats', () => {
@@ -107,6 +123,11 @@ test('parseViewsCount extracts numeric counts accurately across varied formats',
   assert.equal(parseViewsCount(100000), 100000);
   assert.equal(parseViewsCount(''), 0);
   assert.equal(parseViewsCount(null), 0);
+  assert.equal(parseViewsCount('1.2萬'), 12000);
+  assert.equal(parseViewsCount('1億'), 100000000);
+  assert.equal(parseViewsCount('Hearts2Hearts'), 0);
+  assert.equal(parseViewsCount('1.2.3M'), 0);
+  assert.equal(parseViewsCount(Infinity), 0);
 });
 
 test('sortVideoItems correctly orders videos by new, old, and popular', () => {
@@ -139,6 +160,14 @@ test('sortVideoItems correctly orders videos by new, old, and popular', () => {
   // 3. Most popular first (popular)
   const sortedPopular = sortVideoItems(sample, 'popular');
   assert.deepEqual(sortedPopular.map((v) => v.id), ['v1', 'v3', 'v2']);
+});
+
+test('unknown publication dates sort last without treating the Unix epoch as unknown', () => {
+  const base = mapSupabaseRowToVideoItem({ youtube_id: 'abcdefghijk' });
+  const records = [{ ...base, id: 'a-unknown' }, { ...base, id: 'z-epoch', publishedAt: '1970-01-01' },
+    { ...base, id: 'recent', publishedAt: '2026-01-01' }];
+  assert.deepEqual(sortVideoItems(records, 'old').map(video => video.id), ['z-epoch', 'recent', 'a-unknown']);
+  assert.deepEqual(sortVideoItems(records, 'new').map(video => video.id), ['recent', 'z-epoch', 'a-unknown']);
 });
 
 test('filterVideosByMembers correctly handles "including" and "only" modes', () => {
@@ -195,7 +224,8 @@ test('classifyVideoGenre accurately categorizes into 5 distinct types', () => {
   assert.equal(classifyVideoGenre("Hearts2Hearts 하츠투하츠 'Moonride' Music Video", '', 'SMTOWN'), 'mv');
 
   // 2. Shorts & Challenges
-  assert.equal(classifyVideoGenre('that one hotpot night.. #Hearts2Hearts #하츠투하츠 #H2H', '', 'Hearts2Hearts'), 'shorts');
+  // A channel name or group hashtag alone is not evidence of Shorts format.
+  assert.equal(classifyVideoGenre('that one hotpot night.. #Hearts2Hearts #하츠투하츠 #H2H', '', 'Hearts2Hearts'), 'other');
   assert.equal(classifyVideoGenre('STYLE 手勢舞挑戰', '', 'Hearts2Hearts'), 'shorts');
   assert.equal(classifyVideoGenre('Cute moment', '', 'Hearts2Hearts', 'https://youtube.com/shorts/abcdefghijk'), 'shorts');
 

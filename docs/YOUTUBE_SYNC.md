@@ -2,7 +2,7 @@
 
 ## 1. Execution boundary
 
-[`scripts/fetch-youtube.cjs`](../scripts/fetch-youtube.cjs) exports `detectMembers`, `loadConfig`, and `syncVideos` for regression testing. Importing the module does not start ingestion or require credentials. Executing it as a CLI loads configuration, creates the privileged Supabase client, runs the bounded scan, prints a summary, and sets an exit code.
+[`scripts/fetch-youtube.cjs`](../scripts/fetch-youtube.cjs) exports `detectMembers`, `loadConfig`, and `syncVideos` for regression testing. Importing the module does not start ingestion or require credentials. Executing it as a CLI requires `ENABLE_YOUTUBE_SYNC` to equal exactly `true`, then loads configuration, creates the privileged Supabase client, runs the bounded scan, prints a summary, and sets an exit code.
 
 No real import was run during remediation. Local tests mock external HTTP/database services.
 
@@ -31,7 +31,8 @@ The owner subsequently committed the prior repairs in `fecf14c` and manually ran
 
 - Schedule: `0 0,12 * * *` — 00:00/12:00 UTC, 08:00/20:00 Hong Kong time.
 - Manual trigger: `workflow_dispatch`.
-- Node 24.18.0 and Bun 1.4.2; frozen lockfile installation.
+- Node 22 and Bun 1.4.2; frozen lockfile installation.
+- Scheduled/manual workflow runs use `--mode=recent --max-pages=3 --max-requests=39`. The unsafe full-history/playlist workflow choices were removed; explicit bounded backfills use the trusted CLI.
 - Workflow token: `contents: read` only.
 - Concurrency group serializes scheduled/manual writers; current work is not canceled by a queued run.
 - Timeout: 20 minutes.
@@ -81,7 +82,7 @@ Tokens are subject to API validity and changing results. There is no automatic p
 4. Reject invalid video IDs, different source IDs, or invalid source dates/titles.
 5. Keep group-token or explicit member-name associations from title/description.
 6. Infer member tags using Unicode-aware alias boundaries; unknown stays empty.
-7. Infer format from a title token `shorts`; this is heuristic, not definitive Shorts classification.
+7. Use the shared content classifier for Shorts/challenge evidence; this is heuristic, not definitive format/aspect-ratio verification. A generic refresh preserves an existing Shorts type or legacy Shorts URL instead of downgrading it.
 8. Lookup canonical watch and legacy Shorts URLs for the video ID.
 9. Insert a new canonical watch URL with tags and description, or refresh existing source metadata without overwriting editorial member tags.
 10. Report all relevant counts and whether each channel's result set finished.
@@ -97,9 +98,9 @@ Channels/items are processed sequentially. Existing source metadata is refreshed
 | Yuha | `yuha`, `유하` |
 | Stella | `stella`, `스텔라` |
 | Juun | `juun`, `준` |
-| A-na | `a-na`, `ana`, `아나` |
+| A-na | `a-na`, `a_na`, `ana`, `아나`, `에이나` |
 | Ian | `ian`, `이안` |
-| Ye-on | `ye-on`, `yeon`, `예온` |
+| Ye-on | `ye-on`, `ye_on`, `yeon`, `예온` |
 
 Aliases require boundaries outside Unicode letters/numbers. Hashtags work. Incidental words such as `piano`, `banana`, and `준비` no longer match. This conservative rule may miss attached Korean particles or other variants; missed tags are safer than fabricated verified appearances.
 
@@ -137,9 +138,9 @@ A legitimate no-new-content run can succeed. A completion summary is not a claim
 
 ## 9. Quota and coverage
 
-The official `search.list` documentation consulted during review described 100 calls/day and one unit in the Search Queries quota bucket. Verify current Google project limits directly before enabling scheduled/backfill runs; provider rules can change.
+Inspect the current Google project's quota buckets, per-operation costs, and daily limits before enabling scheduled/backfill runs. No live quota was verified during this repair, and a request-count bound is not a guarantee that provider quota is sufficient.
 
-Default maximum is 39 **attempts** per run, so two scheduled runs can use up to 78, leaving limited room for retries elsewhere/manual work on a 100-call allocation. Backfill must share the same project's allocation. Budget exhaustion is visible, not silently treated as complete.
+Default maximum is 39 **attempts** per run, so two scheduled runs can use up to 78 search attempts. Backfill and other applications share the project's allocation. Budget exhaustion is visible, not silently treated as complete.
 
 The API documents a 500-video channel-search cap for the request shape used here. Page/request bounds may be lower. No claim of complete catalog coverage is made.
 

@@ -106,6 +106,17 @@ test('source refresh preserves existing editorial member tags', async () => {
   assert.ok(!('members' in db.records[0]));
 });
 
+test('generic refresh cannot erase existing Shorts evidence or editorial tags', async () => {
+  const db = fakeDatabase({ existing: { id: 'existing-short', type: 'shorts', url: 'https://www.youtube.com/shorts/abcdefghijk' } });
+  const result = await syncVideos({ ...loadConfig(env), client: db.client,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ items: [item('Hearts2Hearts Cute moment')] }) }), log: () => {},
+  });
+  assert.equal(result.updated, 1);
+  assert.equal(db.records[0].type, 'shorts');
+  assert.equal(db.records[0].url, 'https://www.youtube.com/watch?v=abcdefghijk');
+  assert.ok(!('members' in db.records[0]));
+});
+
 test('bounded scans report a continuation token instead of claiming full history', async () => {
   const result = await syncVideos({ ...loadConfig(env), client: fakeDatabase().client, maxPages: 1,
     fetchImpl: async () => ({ ok: true, json: async () => ({ items: [], nextPageToken: 'next-page' }) }), log: () => {},

@@ -1,6 +1,8 @@
 # Remediation status
 
-The owner committed/pushed the previous repairs in `fecf14c`. The newer [importer write-compatibility repair](YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md) remains local and uncommitted. The original findings remain as a historical baseline in [Project review](PROJECT_REVIEW.md).
+**Current working-tree repair:** regressions at `2b61799` and the supplied Vercel TypeScript failure have been repaired locally. See [repair validation](REPAIR_VALIDATION.md) for the current contracts, 70-test/clean-install/build/browser evidence, deployment checklist, and explicit remaining risks. No deployment, migration, or real ingestion was performed. The 51-finding [current-review baseline](COMPREHENSIVE_REVIEW.md) is preserved as pre-repair evidence, not a claim that all findings remain open or are now closed.
+
+The table below tracks the earlier 15-issue remediation lineage. Historical commit/uncommitted-state assertions in older incident reports apply only to their recorded inspections.
 
 ## Issue-by-issue progress
 

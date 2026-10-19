@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { readFileSync, mkdtempSync, rmSync } = require('node:fs');
+const { readFileSync, mkdtempSync, rmSync, mkdirSync, copyFileSync } = require('node:fs');
 const { tmpdir } = require('node:os');
 const { join, resolve } = require('node:path');
 const { spawnSync } = require('node:child_process');
@@ -110,6 +110,23 @@ test('approved configuration succeeds without loading the SDK or performing an i
   }
 });
 
+test('approved preflight works in an isolated checkout with no installed SDK', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'youtube-preflight-no-sdk-'));
+  try {
+    mkdirSync(join(directory, 'scripts'), { recursive: true });
+    mkdirSync(join(directory, 'src/lib'), { recursive: true });
+    for (const file of ['scripts/check-youtube-sync.cjs', 'scripts/fetch-youtube.cjs', 'src/lib/videoMetadata.cjs']) {
+      copyFileSync(join(root, file), join(directory, file));
+    }
+    const result = spawnSync(process.execPath, [join(directory, 'scripts/check-youtube-sync.cjs')], {
+      cwd: directory, env: configured, encoding: 'utf8', timeout: 5000,
+    });
+    assert.ifError(result.error);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /Configuration ready/);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
 test('verified thirteen-channel manifest is compatible with importer and workflow preflight', () => {
   const manifest = require('../config/youtube-channels.json');
   const { loadConfig } = require('../scripts/fetch-youtube.cjs');
@@ -128,6 +145,29 @@ test('verified thirteen-channel manifest is compatible with importer and workflo
   const env = { ...configured, YOUTUBE_CHANNEL_IDS: ids.join(',') };
   assert.deepEqual(loadConfig(env, []).channelIds, ids);
   assert.deepEqual(checkWorkflowConfig(env), []);
+});
+
+test('invalid database targets are reported without echoing configuration values', () => {
+  const target = 'https://fixture.supabase.co/path?private=do-not-print';
+  const result = preflight({ ...configured, SUPABASE_URL: target });
+  assert.equal(result.status, 1);
+  assert.match(result.output, /SUPABASE_URL/);
+  assert.ok(!result.output.includes(target));
+});
+
+test('the writer CLI cannot start when approval is absent or non-exact', () => {
+  for (const enabled of ['', 'false', 'TRUE', ' true ', '1']) {
+    const result = spawnSync(process.execPath, [join(root, 'scripts/fetch-youtube.cjs')], {
+      env: { ...configured, ENABLE_YOUTUBE_SYNC: enabled }, encoding: 'utf8', timeout: 5000,
+    });
+    assert.ifError(result.error);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /ENABLE_YOUTUBE_SYNC/);
+    assert.ok(!result.stdout.includes('sync-summary'));
+    for (const value of Object.values(configured).filter(value => value.startsWith('private'))) {
+      assert.ok(!(result.stdout + result.stderr).includes(value));
+    }
+  }
 });
 
 test('preflight also reports configuration errors outside GitHub Actions', () => {

@@ -2,7 +2,7 @@
 
 ## 1. Deployment model
 
-The frontend is a static Vite build in `dist/`. Supabase and the enabled importer operate separately. There is no Express/server process or checked-in deployment workflow.
+The frontend is a static Vite build in `dist/`. Supabase and the enabled importer operate separately. `vercel.json` now specifies Vite, frozen Bun installation, type-gated build, and `dist` output; set Vercel Root Directory to repository root and Node 22.x. There is no Express/server process or repository-driven automatic deployment workflow. See [current repair and release evidence](REPAIR_VALIDATION.md).
 
 | Host setting | Value |
 | --- | --- |

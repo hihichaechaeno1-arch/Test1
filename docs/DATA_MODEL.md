@@ -4,6 +4,7 @@
 
 - [`src/types.ts`](../src/types.ts): domain types.
 - [`src/lib/videoData.ts`](../src/lib/videoData.ts): pure external-row validation/legacy adapter.
+- [`src/lib/videoMetadata.cjs`](../src/lib/videoMetadata.cjs): shared dependency-free member aliases, YouTube identity parsing, and content classification.
 - [`src/lib/archive.ts`](../src/lib/archive.ts): public projections and pagination.
 - [`src/data/h2hData.ts`](../src/data/h2hData.ts): member data and demo fixtures.
 - [`scripts/fetch-youtube.cjs`](../scripts/fetch-youtube.cjs): discovery/write contract.
@@ -27,27 +28,29 @@ Member names appear in types, profile/sample data, presets, importer aliases, an
 ## 3. Video contract
 
 `VideoType = 'video' | 'shorts'`.
-`VideoCategory = 'all' | 'mv' | 'dance' | 'vlog' | 'variety' | 'shorts'`.
-`VideoItem.category` now uses the same `VideoCategory` union, including unknown/all.
+`VideoGenre = 'mv' | 'shorts' | 'stage' | 'original' | 'other'` drives the five active content tabs. `VideoCategory` additionally accepts legacy `all/dance/vlog/variety` metadata; it is not used as an ownership assertion. Derived `genre` is optional for fixtures and computed at the mapping/UI boundary. `getVideoGroup` returns a genre code, not the removed four-group official-source model.
+
+`MemberMatchMode = 'including' | 'only' | 'AND' | 'OR'`; the active UI uses including/all-selected and only/exact-stored-tag-set. `SortOrder = 'new' | 'old' | 'popular'`; unknown dates remain last. Popularity is disabled in the UI if usable counts are absent.
 
 | Field | Type | Use |
 | --- | --- | --- |
 | `id` | string | Stable React identity. |
 | `title` | string | Display/search. |
-| `type` | VideoType | Format filtering/badges. |
-| `category` | VideoCategory | Metadata; no active category filter. |
+| `type` | VideoType | Normalized video/Shorts format metadata, not verified aspect ratio. |
+| `genre` | optional VideoGenre | Derived content category for tabs, badges, and keyword matching. |
+| `category` | VideoCategory | Retained legacy metadata. |
 | `channel` | string | Display/search. |
 | `members` | MemberName[] | Inclusive AND tag filtering. |
 | `duration` | string | Display only; missing shows `未提供`. |
 | `publishedAt` | string | ISO date or blank/unknown. |
 | `views` | string | Optional display text, not numeric analytics. |
-| `thumbnailUrl` | string | Safe HTTP(S) image URL. |
+| `thumbnailUrl` | string | HTTPS image URL; invalid/unsafe values use the YouTube thumbnail fallback. |
 | `youtubeId` | string | Valid 11-character YouTube identity. |
 | `description` | string | Display/search. |
 | `highlightNote` | optional string | Editorial highlight. |
 | `isSample` | optional boolean | Demo rendering disables playback. |
 
-Member tags are unverified associations. There is no verified-appearance schema or UI mode. Existing/manual tags are preserved during source refresh, but preservation does not prove their correctness.
+Member tags are unverified associations. There is no verified-appearance schema or UI mode. Existing/manual tags are preserved during source refresh and browser mapping, including explicit empty arrays; title/description inference never replaces them. Missing browser member metadata stays empty. Preservation does not prove correctness, and no historical all-eight cleanup is automatic.
 
 ## 4. Row normalization
 
@@ -56,16 +59,16 @@ Member tags are unverified associations. There is no verified-appearance schema 
 | Output | Accepted input | Default/validation |
 | --- | --- | --- |
 | `youtubeId` | Valid `youtube_id`, `youtubeId`, or known YouTube `url`. | Reject if no valid identity. |
-| `thumbnailUrl` | `thumbnail_url`, `thumbnailUrl`, `thumbnail`. | HTTP(S) only; otherwise derive YouTube `hqdefault.jpg`. |
+| `thumbnailUrl` | `thumbnail_url`, `thumbnailUrl`, `thumbnail`. | HTTPS without embedded credentials; otherwise derive YouTube `hqdefault.jpg`. |
 | `id` | String or numeric `id`. | Stable YouTube ID if missing; never random. |
 | `title` | String `title`. | `無標題影片`; wrong types are not passed to rendering. |
-| `type` | `type`, lowercased. | `video` if absent; reject invalid nonempty format. |
+| `type` | `type`, lowercased. | `video` if absent; normalize prior importer `mv/stage/original/other` values to video while retaining derived genre; reject other invalid nonempty values. |
 | `category` | Supported string category. | `all` for absent/invalid. |
 | `channel` | String `channel`. | `未提供頻道名稱`, not an invented official source. |
-| `members` | Array, JSON-array string, comma-separated string. | Canonicalize case, trim, reject unknowns, deduplicate; unknown stays empty. |
+| `members` | Array, JSON-array string, comma-separated string. | Canonicalize aliases/case, trim, ignore unrecognized names, deduplicate; unknown stays empty and malformed JSON rejects. |
 | `publishedAt` | `published_at` or `publishedAt`. | ISO date prefix; absent stays blank; invalid nonempty date rejected. |
 | `description` | String. | Blank for missing/wrong type. |
-| `duration` / `views` | Strings. | `未提供` / blank. |
+| `duration` / `views` | Strings; numeric nonnegative finite views also accepted. | `未提供` / blank. Localized view counts are parsed for sorting, not invented from channel names. |
 | `highlightNote` | `highlight_note` or `highlightNote`. | Optional string. |
 
 `getYoutubeId(value)` recognizes exact IDs, `youtu.be/{id}`, and `/watch`, `/shorts`, `/embed`, `/live` forms on exact supported YouTube hosts. Arbitrary hosts containing a `v` query parameter are rejected. These checks validate syntax/domain, not video availability or ownership.

@@ -107,8 +107,8 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
           </div>
           <p className="text-xs text-slate-500 mt-1">
             {matchMode === 'only'
-              ? '「僅限 (Only)」模式：影片成員嚴格只有所選成員（排除其他成員，適合找專屬雙人同框或個人 Solo）'
-              : '「包含 (Including)」模式：影片只要包含所選成員皆會顯示（可同時含其他成員或全員團體舞台）'}
+              ? '「僅限 (Only)」模式：已儲存的成員標籤恰好等於所選組合；標籤未經實際出鏡核實'
+              : '「包含 (Including)」模式：必須包含全部所選標籤，也可包含其他標籤；不保證實際同框'}
           </p>
         </div>
 
@@ -129,7 +129,7 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
                   ? 'bg-white text-rose-600 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="包含模式：影片只要包含所選成員即可（可有其他成員）"
+              title="包含全部所選成員標籤（可有其他標籤）"
             >
               <span>包含 (Including)</span>
             </button>
@@ -142,7 +142,7 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
                   ? 'bg-white text-rose-600 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="僅限模式：影片成員嚴格僅有所選成員（排除其他成員，例如專屬雙人同框或個人 Solo）"
+              title="已儲存的標籤恰好等於所選組合；不代表已核實出鏡"
             >
               <span>僅限 (Only)</span>
             </button>

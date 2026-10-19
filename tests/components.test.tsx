@@ -4,6 +4,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { VideoCard } from '../src/components/VideoCard';
 import { MemberSelector } from '../src/components/MemberSelector';
+import { mapSupabaseRowToVideoItem } from '../src/lib/videoData';
 import type { Member, VideoItem } from '../src/types';
 
 const video: VideoItem = {
@@ -23,6 +24,17 @@ test('live card keeps its playback link and lazy-loads images', () => {
   assert.match(html, /href="https:\/\/www.youtube.com\/watch\?v=abcdefghijk"/);
   assert.match(html, /loading="lazy"/);
   assert.match(html, /未核實/);
+});
+
+test('a freshly imported legacy row renders the intended playback link without official-source claims', () => {
+  const mapped = mapSupabaseRowToVideoItem({
+    id: 0, url: 'https://www.youtube.com/shorts/abcdefghijk', type: 'shorts',
+    title: 'Unlabeled clip', channel: 'Unofficial Hearts2Hearts Fan', members: [],
+  });
+  const html = renderToStaticMarkup(<VideoCard video={mapped} selectedMembers={[]} />);
+  assert.match(html, /href="https:\/\/www.youtube.com\/watch\?v=abcdefghijk"/);
+  assert.doesNotMatch(html, /undefined|9:16|官方 MV|其他官方影音/);
+  assert.match(html, /未核實 \(0\)/);
 });
 
 test('member controls announce their toggle state and retain keyboard focus styles', () => {

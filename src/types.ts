@@ -1,103 +1,44 @@
-export type MemberId =
-  | 'carmen'
-  | 'jiwoo'
-  | 'yuha'
-  | 'stella'
-  | 'juun'
-  | 'a-na'
-  | 'ana'
-  | 'ian'
-  | 'ye-on'
-  | 'yeon';
+/** @license SPDX-License-Identifier: Apache-2.0 */
 
-export type MemberName =
-  | 'Carmen'
-  | 'Jiwoo'
-  | 'Yuha'
-  | 'Stella'
-  | 'Juun'
-  | 'A-na'
-  | 'Ian'
-  | 'Ye-on';
+export type MemberName = 'Carmen' | 'Jiwoo' | 'Yuha' | 'Stella' | 'Juun' | 'A-na' | 'Ian' | 'Ye-on';
+export type MemberMatchMode = 'including' | 'only' | 'AND' | 'OR';
+export type SortOrder = 'new' | 'old' | 'popular';
 
-export type MemberMatchMode =
-  | 'AND'
-  | 'OR'
-  | 'ONLY'
-  | 'INCLUDE'
-  | 'and'
-  | 'or'
-  | 'only'
-  | 'include';
-
-export type SortOrder = 'newest' | 'oldest' | 'popular' | 'views';
-
-export type VideoType =
-  | 'video'
-  | 'shorts'
-  | 'mv'
-  | 'stage'
-  | 'original'
-  | 'other'
-  | string;
-
-// 5 大分類（同時兼容舊測試的標籤）
-export type VideoGroup =
-  | 'All'
-  | 'Official MV'
-  | 'Shorts / Challenges'
-  | 'Stage / Performance'
-  | 'Variety Show'
-  | 'Other Video'
-  | 'Official H2H'
-  | 'Shorts'
-  | 'External Channels'
-  | string;
-
-export type VideoCategory = VideoGroup;
+/** Physical format is separate from inferred content category and source ownership. */
+export type VideoType = 'video' | 'shorts';
+export type VideoGenre = 'mv' | 'shorts' | 'stage' | 'original' | 'other';
+export type VideoCategory = 'all' | VideoGenre | 'dance' | 'vlog' | 'variety';
 
 export interface Member {
-  id: MemberId;
-  name: MemberName | string;
+  id: string;
+  name: MemberName;
   koreanName: string;
-  birthYear?: number;
-  birthday?: string;
-  mbti?: string;
   role: string;
-  charm?: string;
-  bio?: string;
-  emoji?: string;
-  imageUrl: string;
-  avatarBg?: string;
-  color: string;
-  description?: string;
+  birthday: string;
+  mbti: string;
+  accentColor: string;
+  avatarBg: string;
+  charm: string;
+  bio: string;
+  imageUrl?: string;
 }
 
 export interface VideoItem {
   id: string;
   title: string;
-  category: string;
-  date: string;
-  publishedAt?: string;
-  published_at?: string;
+  type: VideoType;
+  category: VideoCategory;
+  /** Derived once when records/fixtures enter the UI; never an ownership assertion. */
+  genre?: VideoGenre;
+  channel: string;
+  members: MemberName[];
   duration: string;
-  thumbnailUrl: string;
-  thumbnail?: string;
-  videoUrl: string;
-  url?: string;
-  channel?: string;
-  type?: VideoType;
+  publishedAt: string;
   views: string;
-  members: (MemberName | MemberId | string)[];
-  description?: string;
-}
-
-export type Video = VideoItem;
-
-export interface Pairing {
-  id: string;
-  names: string;
-  members: [MemberName | MemberId | string, MemberName | MemberId | string];
-  chemistry: string;
-  recommendedVideoIds: string[];
+  thumbnailUrl: string;
+  youtubeId: string;
+  url?: string;
+  description: string;
+  highlightNote?: string;
+  isSample?: boolean;
 }

@@ -1,6 +1,6 @@
 # Hearts2Hearts Video Archive test
 
-A Traditional Chinese React/Vite fan archive that filters videos and Shorts by **all selected member tags**, format, and title/channel/description keywords. Tags are unverified associations, **not proof of on-screen co-appearance**.
+A Traditional Chinese React/Vite fan archive that filters by **all selected member tags** (or an exact stored-tag set), five content categories, and title/channel/description keywords. Tags are unverified associations, **not proof of on-screen co-appearance**.
 
 The browser reads Supabase; a separate Node/GitHub Actions importer searches owner-approved YouTube channel IDs. Demo content is explicitly labeled and cannot open unrelated videos.
 
@@ -39,15 +39,15 @@ Dependencies and Bun are pinned; CI uses the existing Bun lockfile. Equivalent `
 
 ## Status and owner requirements
 
-Local tests, type-checking, and build pass. See [remediation status](docs/REMEDIATION.md) for all 15 review findings, implemented changes, and external blockers.
+The Vercel TypeScript/build regression is repaired locally: **70 tests**, strict type-checking, a clean Node 22/Bun frozen installation, production build, and mocked Chrome smoke checks pass. See [repair and validation](docs/REPAIR_VALIDATION.md) for evidence, deployment instructions, and remaining risks; this does not close every finding in the [51-issue baseline review](docs/COMPREHENSIVE_REVIEW.md).
 
-**Do not enable production ingestion yet without inspecting the actual database.** The table must support the documented fields (including `description`), privileged metadata updates, public read policies, stable IDs, and reviewed duplicate/uniqueness protection. Channel identities and content rights remain owner-verification tasks. No live migration or import was executed.
+**Do not enable production ingestion yet without inspecting the actual database.** The table must support the documented required fields, privileged metadata updates, public read policies, stable IDs, and reviewed duplicate/uniqueness protection. `description` has narrowly scoped missing-column compatibility; storing it requires the column. Channel identities and content rights remain owner-verification tasks. No live migration or import was executed.
 
 GitHub ingestion requires `ENABLE_YOUTUBE_SYNC=true` and an explicit `YOUTUBE_CHANNEL_IDS` repository variable. Scheduled/manual jobs run a configuration-only preflight; missing approval/settings fail with actionable errors instead of silently skipping the job. See [setup](docs/SETUP_CONFIGURATION.md), [sync operations](docs/YOUTUBE_SYNC.md), and the [skip diagnosis](docs/YOUTUBE_SYNC_DIAGNOSIS.md).
 
 ## Documentation
 
-Start at [docs/README.md](docs/README.md). For the hosted archive-load error and optional-column compatibility repair, see [Vercel data-load diagnosis](docs/VERCEL_DATA_LOAD_DIAGNOSIS.md).
+Start at [docs/README.md](docs/README.md). The current build failure and repairs are documented in [repair validation](docs/REPAIR_VALIDATION.md). The [Vercel data-load diagnosis](docs/VERCEL_DATA_LOAD_DIAGNOSIS.md) describes a separate historical missing-column runtime incident.
 
 - [Remediation status](docs/REMEDIATION.md)
 - [User guide](docs/USER_GUIDE.md)
@@ -62,6 +62,6 @@ Start at [docs/README.md](docs/README.md). For the hosted archive-load error and
 
 ## Scope and ownership
 
-The active page has member controls, five presets, format tabs, keyword search, video cards, and a footer. Multi-tab navigation, member profiles, recommendation panels, and embedded playback components are retained but not mounted. No server, authentication, admin UI, or Gemini feature is implemented.
+The active page has member controls, five presets, five content-category tabs, sorting, keyword search, video cards, and a footer. Category names do not certify official ownership or on-screen membership. Popularity is disabled when view counts are unavailable. Multi-tab navigation, member profiles, recommendation panels, and embedded playback components are retained but not mounted. No server, authentication, admin UI, or Gemini feature is implemented.
 
-This is an unofficial fan project. Existing SPDX headers do not establish asset rights or independently verify biographies. A root license must be confirmed by the owner rather than guessed. The owner committed/pushed the prior repairs in `fecf14c`. The newer [importer write-compatibility repair](docs/YOUTUBE_WRITE_FAILURE_DIAGNOSIS.md) remains local and uncommitted.
+This is an unofficial fan project. Existing SPDX headers do not establish asset rights or independently verify biographies. A root license must be confirmed by the owner rather than guessed. The current repairs remain local and uncommitted; no deployment or production data/configuration change was performed.
