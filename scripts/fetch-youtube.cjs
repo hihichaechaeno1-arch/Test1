@@ -85,11 +85,27 @@ function databaseDiagnostic(error) {
     ? error.code : 'unknown';
   const reasons = {
     PGRST204: 'schema-column-missing', '42703': 'schema-column-missing',
+    PGRST116: 'multiple-rows',
     '42501': 'permission-denied', PGRST301: 'authentication-failed',
     '23502': 'required-value-missing', '23505': 'unique-conflict',
     '23514': 'check-constraint', '22P02': 'invalid-value',
   };
   return { code, reason: reasons[code] || 'database-operation-failed' };
+}
+
+/**
+ * Resolve an existing row for a YouTube identity.
+ * Prefer the canonical watch URL when both watch and Shorts URLs were stored
+ * (PostgREST PGRST116 / .maybeSingle fails when .in() matches more than one row).
+ */
+function pickExistingVideoRow(rows, videoUrl, shortsUrl) {
+  const list = Array.isArray(rows) ? rows.filter(row => row && typeof row === 'object') : [];
+  if (!list.length) return { existing: null, matchCount: 0, shortsEvidence: false };
+  const existing = list.find(row => row.url === videoUrl)
+    || list.find(row => row.url === shortsUrl)
+    || list[0];
+  const shortsEvidence = list.some(row => row.type === 'shorts' || row.url === shortsUrl);
+  return { existing, matchCount: list.length, shortsEvidence };
 }
 
 /** Trusted ingestion seam. External HTTP/database services can be injected for offline tests. */
@@ -173,13 +189,23 @@ async function syncVideos({
           published_at: snippet.publishedAt.split('T')[0], description,
         };
         let operation = 'lookup';
+        const shortsUrl = `https://www.youtube.com/shorts/${id}`;
         try {
-          const { data: existing, error: lookupError } = await client.from('videos')
-            .select('id,type,url').in('url', [videoUrl, `https://www.youtube.com/shorts/${id}`]).maybeSingle();
+          // Do not use maybeSingle(): duplicate watch + shorts rows for one ID are common and
+          // return PGRST116 ("multiple rows"), which previously aborted the update path.
+          const { data: lookupRows, error: lookupError } = await client.from('videos')
+            .select('id,type,url').in('url', [videoUrl, shortsUrl]);
           if (lookupError) throw lookupError;
+          const { existing, matchCount, shortsEvidence } = pickExistingVideoRow(lookupRows, videoUrl, shortsUrl);
+          if (matchCount > 1) {
+            log({
+              event: 'duplicate-identity', channelId, videoId: id, matches: matchCount,
+              reason: 'multiple-url-rows', preferredId: existing?.id,
+            });
+          }
           if (existing) {
             // Weak text inference must not erase earlier Shorts evidence or editorial tags.
-            if (existing.type === 'shorts' || existing.url === `https://www.youtube.com/shorts/${id}`) metadata.type = 'shorts';
+            if (shortsEvidence || existing.type === 'shorts' || existing.url === shortsUrl) metadata.type = 'shorts';
             operation = 'update';
             const { error, count } = await writeMetadata({ ...metadata, url: videoUrl }, record =>
               client.from('videos').update(record, { count: 'exact' }).eq('id', existing.id));
@@ -213,7 +239,7 @@ async function syncVideos({
   return summary;
 }
 
-module.exports = { detectMembers, loadConfig, syncVideos };
+module.exports = { detectMembers, loadConfig, syncVideos, pickExistingVideoRow };
 
 if (require.main === module) {
   (async () => {

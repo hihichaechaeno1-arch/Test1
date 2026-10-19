@@ -1,4 +1,16 @@
-# YouTube importer: 850 write failures
+# YouTube importer write / lookup failures
+
+## Follow-up: PGRST116 duplicate URL lookup (run #75)
+
+Incident: [GitHub run 39284692689](https://github.com/hihichaechaeno1-arch/Test1/actions/runs/39284692689) (2026-10-19). Sync still wrote successfully (`inserted: 72`, `updated: 757`) but exited 1 because **33 lookups** failed with PostgREST `PGRST116`.
+
+Cause: `.in('url', [watchUrl, shortsUrl]).maybeSingle()` throws when **both** URL forms (or other duplicates) already exist for the same video ID. That is “multiple rows,” not a missing credential or missing `description` column (`metadataOmissions` was empty).
+
+Repair: look up with `.in(...)` (array result), prefer the canonical `watch?v=` row, preserve Shorts evidence from any matching row, log `duplicate-identity`, and continue updating. Owner should still dedupe residual duplicate URL rows and add a uniqueness constraint when ready.
+
+---
+
+# Historical: 850 write failures
 
 Incident: [GitHub run 37210961443](https://github.com/hihichaechaeno1-arch/Test1/actions/runs/37210961443), manual execution on 2026-10-04 at commit `fecf14c`. The owner committed/pushed the previous repairs and ran ingestion. The importer repair described below is a new local, uncommitted change; the agent did not rerun live ingestion or modify the database.
 

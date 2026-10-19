@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { detectMembers, loadConfig, syncVideos } = require('../scripts/fetch-youtube.cjs');
+const { detectMembers, loadConfig, syncVideos, pickExistingVideoRow } = require('../scripts/fetch-youtube.cjs');
 
 const item = (title = 'Hearts2Hearts Carmen #shorts') => ({
   id: { videoId: 'abcdefghijk' },
@@ -10,12 +10,28 @@ const item = (title = 'Hearts2Hearts Carmen #shorts') => ({
     description: 'Jiwoo rehearsal', publishedAt: '2026-10-01T00:00:00Z' },
 });
 
-function fakeDatabase({ existing = null, winner = null, lookupError = null, writeError = null }: any = {}) {
+function fakeDatabase({
+  existing = null, existingRows = null, winner = null, lookupError = null, writeError = null,
+}: any = {}) {
   const records: any[] = [];
+  const rows = existingRows ?? (existing ? [existing] : []);
   const client = { from: () => ({
     select: () => ({
-      in: () => ({ maybeSingle: async () => ({ data: existing, error: lookupError }) }),
-      eq: () => ({ maybeSingle: async () => ({ data: winner || existing, error: lookupError }) }),
+      in: () => {
+        const query: any = Promise.resolve({
+          data: lookupError ? null : rows,
+          error: lookupError,
+        });
+        query.maybeSingle = async () => {
+          if (lookupError) return { data: null, error: lookupError };
+          if (rows.length > 1) {
+            return { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } };
+          }
+          return { data: rows[0] || null, error: null };
+        };
+        return query;
+      },
+      eq: () => ({ maybeSingle: async () => ({ data: winner || existing || rows[0] || null, error: lookupError }) }),
     }),
     insert: async (record: any) => { records.push(record); return { error: writeError }; },
     update: (record: any) => ({ eq: async () => { records.push(record); return { error: writeError, count: writeError ? 0 : 1 }; } }),
@@ -68,6 +84,34 @@ test('lookup errors are reported without attempting an insert', async () => {
   assert.deepEqual(db.records, []);
   assert.match(JSON.stringify(logs), /database-failed/);
   assert.ok(!JSON.stringify(logs).includes('private database detail'));
+});
+
+test('duplicate watch and shorts URL rows update the preferred watch row instead of PGRST116', async () => {
+  const watch = 'https://www.youtube.com/watch?v=abcdefghijk';
+  const shorts = 'https://www.youtube.com/shorts/abcdefghijk';
+  assert.deepEqual(
+    pickExistingVideoRow(
+      [{ id: 'shorts-row', type: 'shorts', url: shorts }, { id: 'watch-row', type: 'video', url: watch }],
+      watch, shorts,
+    ),
+    { existing: { id: 'watch-row', type: 'video', url: watch }, matchCount: 2, shortsEvidence: true },
+  );
+  const db = fakeDatabase({
+    existingRows: [
+      { id: 'shorts-row', type: 'shorts', url: shorts },
+      { id: 'watch-row', type: 'video', url: watch },
+    ],
+  });
+  const logs: any[] = [];
+  const result = await syncVideos({
+    ...loadConfig(env), client: db.client,
+    fetchImpl: async () => ({ ok: true, json: async () => ({ items: [item()] }) }),
+    log: (entry: unknown) => logs.push(entry),
+  });
+  assert.equal(result.failed, 0);
+  assert.equal(result.updated, 1);
+  assert.equal(db.records[0].url, watch);
+  assert.ok(logs.some(entry => entry?.event === 'duplicate-identity' && entry?.matches === 2));
 });
 
 test('insert failures and all-channel API failures cannot report success', async () => {
