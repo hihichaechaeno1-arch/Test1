@@ -75,6 +75,15 @@ function hasShortsFormatEvidence(title = '', description = '', url = '', type = 
     || /#shorts\b/iu.test(description);
 }
 
+/**
+ * Preview titles. "MV Teaser" is not an MV, and these words are not Shorts evidence.
+ * Official Shorts membership is decided separately and can still include a teaser Short.
+ * @param {string} [title]
+ */
+function isTeaserTitle(title = '') {
+  return /teaser|티저|trailer|트레일러/iu.test(title);
+}
+
 /** Vlog / diary / behind-the-scenes lifestyle cues for dual Shorts + 綜藝 placement. */
 function isVlogVarietyContent(title = '', description = '') {
   const text = `${title}\n${description}`;
@@ -85,10 +94,11 @@ function isVlogVarietyContent(title = '', description = '') {
  * Content classification without the Shorts-tab gate.
  * Strong performance cues run before episode/variety markers so a Show Champion
  * fancam titled "EP.602" is stage, not 綜藝. Teasers and behind-the-scenes stay other.
+ * A teaser/trailer title is other even when it also says MV or the stored type is mv.
  * @returns {import('../types').VideoGenre}
  */
 function classifyContentGenre(title = '', description = '', channel = '', type = '') {
-  if (/teaser|티저|trailer|트레일러/iu.test(title)) return 'other';
+  if (isTeaserTitle(title)) return 'other';
 
   // Speeches and lineup posts mention a music show but are not the performance.
   const hardOther = /behind|비하인드|bh2nd|interview|인터뷰|making|메이킹|reaction|리액션|unboxing|언박싱|commentary|코멘터리|직캠보고서|幕後|幕后|수상소감|라인업|출챔/iu.test(title);
@@ -131,6 +141,10 @@ function classifyVideoGenres(title = '', description = '', channel = '', url = '
     if (isVlogVarietyContent(title, description)) genres.push('original');
     return genres;
   }
+
+  // A non-Shorts teaser or trailer stays other. The word MV inside "MV Teaser",
+  // or a stored mv/stage/original value, does not promote it.
+  if (isTeaserTitle(title)) return ['other'];
 
   // Stored mv/stage/original wins over the title heuristic. `video` and `shorts`
   // are formats, and stored `other` is only the fallback when no clearer cue exists.
