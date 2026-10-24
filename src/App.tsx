@@ -372,7 +372,7 @@ export default function App() {
               )}
             </button>
 
-            {/* 5. 自製團綜 (Original Content) */}
+            {/* 5. 官方綜藝/物料 */}
             <button
               type="button"
               onClick={() => setGroupFilter('original')}
@@ -384,7 +384,7 @@ export default function App() {
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-              <span>綜藝與 Vlog</span>
+              <span>{FIVE_CATEGORIES.original.label}</span>
               {!isLoading && (
                 <span className="text-[11px] font-mono tabular-nums opacity-75">
                   ({originalCount})

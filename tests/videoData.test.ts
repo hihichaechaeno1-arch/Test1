@@ -9,6 +9,7 @@ import {
   sortVideoItems,
   classifyVideoGenre,
   classifyVideoGenres,
+  FIVE_CATEGORIES,
 } from '../src/lib/videoData';
 import type { VideoItem } from '../src/types';
 
@@ -117,7 +118,7 @@ test('five content categories: Shorts tab is official-channel only', () => {
   for (const [video, expected] of cases) assert.equal(getVideoGroup(video), expected);
 });
 
-test('official vlog Shorts appear in both Shorts and 綜藝 tabs', () => {
+test('official vlog Shorts appear in both Shorts and 官方綜藝/物料', () => {
   assert.deepEqual(
     getVideoGroups({
       channel: 'Hearts2Hearts 官方頻道',
@@ -362,32 +363,43 @@ test('official Hearts2Hearts Shorts stay on the Shorts tab, including hashtag-on
   );
 });
 
-test('teasers and trailers stay other unless they are official Hearts2Hearts Shorts', () => {
+test('官方綜藝/物料 is the visible name of the original tab', () => {
+  assert.equal(FIVE_CATEGORIES.original.label, '官方綜藝/物料');
+  assert.equal(FIVE_CATEGORIES.original.englishLabel, 'Official Variety / Content');
+  assert.equal(FIVE_CATEGORIES.original.shortLabel, '綜藝');
+});
+
+test('teasers stay other and trailers go to 官方綜藝/物料 unless they are official Shorts', () => {
+  const shortsUrl = 'https://www.youtube.com/shorts/abcdefghijk';
   const teasers = [
     "Hearts2Hearts 'ICONIC HEART' MV Teaser",
     '[Teaser] Hearts2Hearts Carmen Artist Teaser',
-    "Hearts2Hearts 2026 Season's Greetings Trailer",
     '하츠투하츠 FOCUS 티저',
-    'Hearts2Hearts Season Greeting trailer',
-    'Hearts2Hearts 시즌그리팅 트레일러',
+    "Hearts2Hearts 'FOCUS' MV Teaser Trailer",
   ];
   for (const title of teasers) {
     assert.equal(classifyVideoGenre(title, '', 'Hearts2Hearts'), 'other');
     assert.equal(classifyVideoGenre(title, '', 'SMTOWN', '', 'mv'), 'other');
-    assert.deepEqual(classifyVideoGenres(title, '', '1theK', 'https://www.youtube.com/shorts/abcdefghijk', 'shorts'), ['other']);
+    assert.deepEqual(classifyVideoGenres(title, '', '1theK', shortsUrl, 'shorts'), ['other']);
   }
-  assert.equal(
-    classifyVideoGenre("Hearts2Hearts 'ICONIC HEART' MV", '', 'SMTOWN'),
-    'mv',
+  const trailers = [
+    "Hearts2Hearts 2026 Season's Greetings Trailer",
+    "SEASON'S GREETINGS TRAILER",
+    'Hearts2Hearts Season Greeting trailer',
+    'Hearts2Hearts 시즌그리팅 트레일러',
+  ];
+  for (const title of trailers) {
+    assert.equal(classifyVideoGenre(title, '', 'Hearts2Hearts'), 'original');
+    assert.equal(classifyVideoGenre(title, '', 'SMTOWN', '', 'mv'), 'original');
+    assert.equal(classifyVideoGenre(title, '', 'SMTOWN', '', 'other'), 'original');
+  }
+  assert.equal(classifyVideoGenre("Hearts2Hearts 'ICONIC HEART' MV", '', 'SMTOWN'), 'mv');
+  assert.deepEqual(
+    classifyVideoGenres("Hearts2Hearts 'FOCUS' MV Teaser", '', 'Hearts2Hearts', shortsUrl, 'video'),
+    ['shorts'],
   );
   assert.deepEqual(
-    classifyVideoGenres(
-      "Hearts2Hearts 'FOCUS' MV Teaser",
-      '',
-      'Hearts2Hearts',
-      'https://www.youtube.com/shorts/abcdefghijk',
-      'video',
-    ),
+    classifyVideoGenres("Hearts2Hearts 2026 Season's Greetings Trailer", '', 'Hearts2Hearts', shortsUrl, 'video'),
     ['shorts'],
   );
 });

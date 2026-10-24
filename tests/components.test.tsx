@@ -14,6 +14,14 @@ const video: VideoItem = {
   duration: '未提供', views: '', description: 'Description',
 };
 
+test('original cards show the 官方綜藝/物料 badge', () => {
+  const html = renderToStaticMarkup(
+    <VideoCard video={{ ...video, genre: 'original', genres: ['original'], title: "Season's Greetings Trailer" }} selectedMembers={[]} />,
+  );
+  assert.match(html, /官方綜藝\/物料/);
+  assert.doesNotMatch(html, /綜藝與 Vlog|綜藝 \/ Vlog/);
+});
+
 test('demo content cannot navigate users to unrelated YouTube videos', () => {
   const html = renderToStaticMarkup(<VideoCard video={{ ...video, isSample: true }} selectedMembers={[]} />);
   assert.ok(!/<a\b/.test(html));

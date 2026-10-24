@@ -76,15 +76,24 @@ function hasShortsFormatEvidence(title = '', description = '', url = '', type = 
 }
 
 /**
- * Preview titles. "MV Teaser" is not an MV, and these words are not Shorts evidence.
- * Official Shorts membership is decided separately and can still include a teaser Short.
+ * MV / artist teaser titles stay other. These words are not Shorts evidence.
+ * If a title also says trailer, teaser still wins.
  * @param {string} [title]
  */
 function isTeaserTitle(title = '') {
-  return /teaser|티저|trailer|트레일러/iu.test(title);
+  return /teaser|티저/iu.test(title);
 }
 
-/** Vlog / diary / behind-the-scenes lifestyle cues for dual Shorts + 綜藝 placement. */
+/**
+ * Season's Greetings and other trailers belong on 官方綜藝/物料 (`original`).
+ * A teaser in the same title is classified first and stays other.
+ * @param {string} [title]
+ */
+function isTrailerTitle(title = '') {
+  return /trailer|트레일러/iu.test(title);
+}
+
+/** Vlog / diary / behind-the-scenes lifestyle cues for dual Shorts + 官方綜藝/物料 placement. */
 function isVlogVarietyContent(title = '', description = '') {
   const text = `${title}\n${description}`;
   return /vlog|브이로그|隨筆|日记|日記|後台|后台|待機|探险|探險|琴房|日常|團綜|예능|variety|\bep\.?\s*\d|\bepisode\b|reality|리얼리티|자컨|diary|다이어리/iu.test(text);
@@ -93,12 +102,13 @@ function isVlogVarietyContent(title = '', description = '') {
 /**
  * Content classification without the Shorts-tab gate.
  * Strong performance cues run before episode/variety markers so a Show Champion
- * fancam titled "EP.602" is stage, not 綜藝. Teasers and behind-the-scenes stay other.
- * A teaser/trailer title is other even when it also says MV or the stored type is mv.
+ * fancam titled "EP.602" is stage, not 官方綜藝/物料. Teasers stay other; trailers are original.
+ * A teaser title is other even when it also says MV, trailer, or the stored type is mv.
  * @returns {import('../types').VideoGenre}
  */
 function classifyContentGenre(title = '', description = '', channel = '', type = '') {
   if (isTeaserTitle(title)) return 'other';
+  if (isTrailerTitle(title)) return 'original';
 
   // Speeches and lineup posts mention a music show but are not the performance.
   const hardOther = /behind|비하인드|bh2nd|interview|인터뷰|making|메이킹|reaction|리액션|unboxing|언박싱|commentary|코멘터리|직캠보고서|幕後|幕后|수상소감|라인업|출챔/iu.test(title);
@@ -121,7 +131,7 @@ function classifyContentGenre(title = '', description = '', channel = '', type =
 /**
  * Returns one or more tab memberships.
  * Shorts tab = official Hearts2Hearts channel Shorts/challenges only.
- * Official Shorts that are also vlog/variety also appear under 綜藝.
+ * Official Shorts that are also vlog/variety also appear under 官方綜藝/物料.
  * Non-official Shorts are never in the Shorts tab; they map to stage / original / other by content.
  * @param {string} [title] @param {string} [description] @param {string} [channel]
  * @param {string} [url] @param {string} [type] @param {string} [channelId]
@@ -134,7 +144,7 @@ function classifyVideoGenres(title = '', description = '', channel = '', url = '
   // Every official Hearts2Hearts Shorts/challenge is on the Shorts tab.
   // Hashtag-only captions, teasers, and interviews do not opt out.
   // A stored mv/stage/original value must not replace that membership.
-  // Vlog/variety cues may add 綜藝 as a second tab.
+  // Vlog/variety cues may add 官方綜藝/物料 as a second tab.
   if (official && shortsFormat) {
     /** @type {import('../types').VideoGenre[]} */
     const genres = ['shorts'];
@@ -142,9 +152,10 @@ function classifyVideoGenres(title = '', description = '', channel = '', url = '
     return genres;
   }
 
-  // A non-Shorts teaser or trailer stays other. The word MV inside "MV Teaser",
-  // or a stored mv/stage/original value, does not promote it.
+  // teaser/티저 → other, even when the title also says trailer or MV.
+  // trailer/트레일러 → 官方綜藝/物料. A stored mv value does not move either one.
   if (isTeaserTitle(title)) return ['other'];
+  if (isTrailerTitle(title)) return ['original'];
 
   // Stored mv/stage/original wins over the title heuristic. `video` and `shorts`
   // are formats, and stored `other` is only the fallback when no clearer cue exists.

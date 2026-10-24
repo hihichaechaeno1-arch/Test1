@@ -32,6 +32,8 @@ Member names appear in types, profile/sample data, presets, importer aliases, an
 
 **Shorts tab rule:** only Hearts2Hearts **official** channel Shorts/challenges. Non-official Shorts are classified by content into `stage` / `original` / `other` and never appear under Shorts.
 
+**`original` tab** is labeled 官方綜藝/物料 (Official Variety / Content). Titles with `trailer` / `트레일러`, including Season's Greetings Trailers, map here. Titles with `teaser` / `티저` stay `other` even if they also say trailer or MV, unless the clip is an official-channel Short.
+
 `MemberMatchMode = 'including' | 'only' | 'AND' | 'OR'`; the active UI uses including/all-selected and only/exact-stored-tag-set. `SortOrder = 'new' | 'old' | 'popular'`; unknown dates remain last. Popularity is disabled in the UI if usable counts are absent.
 
 | Field | Type | Use |

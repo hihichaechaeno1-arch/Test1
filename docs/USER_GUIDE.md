@@ -11,13 +11,14 @@ Tags are unverified associations and can originate from text inference or older 
 1. Wait for loading to finish and check the visible data-source message.
 2. Select at least one member using their avatar/name button.
 3. Choose one match mode. **包含全部** means every selected tag is present and extras are allowed. **剛好等於** means the stored tag set is exactly the selection. The switch lives once, above the member avatars.
-4. Optionally narrow with a content-category tab: **全部**, **MV**, **官方 Shorts**, **舞台**, **綜藝**, or **其他**.
+4. Optionally narrow with a content-category tab: **全部**, **MV**, **官方 Shorts**, **舞台**, **官方綜藝/物料**, or **其他**.
 5. Optionally search title, channel, or description, and choose sort (new / old / popular when view counts exist).
 6. Open a live card in YouTube; demo cards are non-playable.
 
 **Category rules (current):**
-- **官方 Shorts**：只收 Hearts2Hearts 官方頻道的 Shorts／挑戰。官方 Vlog 類 Shorts（例如琴房、後台日記）會**同時**出現在 Shorts 與綜藝。
-- 其他頻道的 Shorts／挑戰不會進 Shorts tab，會按內容分到舞台、綜藝、或其他影音。
+- **官方 Shorts**：只收 Hearts2Hearts 官方頻道的 Shorts／挑戰。官方 Vlog 類 Shorts（例如琴房、後台日記）會**同時**出現在 Shorts 與官方綜藝/物料。
+- **官方綜藝/物料**：團綜、Vlog，以及 trailer／트레일러（含 Season's Greetings Trailer）。`teaser`／`티저`（含 MV Teaser）留在其他，除非它同時是官方 Shorts。
+- 其他頻道的 Shorts／挑戰不會進 Shorts tab，會按內容分到舞台、官方綜藝/物料、或其他影音。
 
 In **包含全部**, Jiwoo + Ian finds records whose stored tags include both; additional members on the record are allowed. **剛好等於** requires the stored tag set to match the selection exactly, including order-independent names and no extras. No selection shows the whole loaded archive. Tags are stored associations, not proof of who is on screen.
 

@@ -16,7 +16,7 @@ export const FIVE_CATEGORIES: Record<VideoGenre, { label: string; englishLabel: 
   mv: { label: '音樂錄影帶', englishLabel: 'Music Video', shortLabel: 'MV' },
   shorts: { label: '官方 Shorts 與挑戰', englishLabel: 'Official Shorts / Challenges', shortLabel: 'Shorts' },
   stage: { label: '舞台表演', englishLabel: 'Stage / Performance', shortLabel: '舞台' },
-  original: { label: '綜藝與 Vlog', englishLabel: 'Variety / Vlog', shortLabel: '綜藝' },
+  original: { label: '官方綜藝/物料', englishLabel: 'Official Variety / Content', shortLabel: '綜藝' },
   other: { label: '其他影音', englishLabel: 'Other Video', shortLabel: '其他' },
 };
 const CATEGORIES: readonly VideoCategory[] = ['all', 'mv', 'shorts', 'stage', 'original', 'other', 'dance', 'vlog', 'variety'];

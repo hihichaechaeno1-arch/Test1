@@ -34,7 +34,7 @@ const GENRE_BADGE: Record<VideoGenre, { className: string; icon: React.ReactNode
   original: {
     className: 'bg-emerald-600/95 text-white font-bold',
     icon: <Sparkles className="w-3.5 h-3.5 fill-white text-white" />,
-    label: '綜藝 / Vlog',
+    label: '官方綜藝/物料',
   },
   other: {
     className: 'bg-purple-700/95 text-white font-semibold',
