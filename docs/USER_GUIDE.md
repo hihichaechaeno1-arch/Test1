@@ -16,8 +16,8 @@ Tags are unverified associations and can originate from text inference or older 
 6. Open a live card in YouTube; demo cards are non-playable.
 
 **Category rules (current):**
-- **官方 Shorts**：只收 Hearts2Hearts 官方頻道的 Shorts／挑戰。官方 Vlog 類 Shorts（例如琴房、後台日記）會**同時**出現在 Shorts 與官方綜藝/物料。
-- **官方綜藝/物料**：團綜、Vlog，以及 trailer／트레일러（含 Season's Greetings Trailer）。`teaser`／`티저`（含 MV Teaser）留在其他，除非它同時是官方 Shorts。
+- **官方 Shorts**：只收 Hearts2Hearts 官方頻道的 Shorts／挑戰。官方 Vlog、預告、trailer 類 Shorts 會**同時**出現在 Shorts 與官方綜藝/物料。
+- **官方綜藝/物料**：團綜、Vlog，以及 `teaser`／`티저`／`trailer`／`트레일러`（含 MV Teaser 與 Season's Greetings Trailer）。訪談、幕後、making、reaction 仍留在其他。
 - 其他頻道的 Shorts／挑戰不會進 Shorts tab，會按內容分到舞台、官方綜藝/物料、或其他影音。
 
 In **包含全部**, Jiwoo + Ian finds records whose stored tags include both; additional members on the record are allowed. **剛好等於** requires the stored tag set to match the selection exactly, including order-independent names and no extras. No selection shows the whole loaded archive. Tags are stored associations, not proof of who is on screen.

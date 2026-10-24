@@ -76,21 +76,12 @@ function hasShortsFormatEvidence(title = '', description = '', url = '', type = 
 }
 
 /**
- * MV / artist teaser titles stay other. These words are not Shorts evidence.
- * If a title also says trailer, teaser still wins.
+ * Teasers and trailers belong on 官方綜藝/物料 (`original`), including MV Teaser.
+ * These words are not Shorts evidence and do not make the clip an MV.
  * @param {string} [title]
  */
-function isTeaserTitle(title = '') {
-  return /teaser|티저/iu.test(title);
-}
-
-/**
- * Season's Greetings and other trailers belong on 官方綜藝/物料 (`original`).
- * A teaser in the same title is classified first and stays other.
- * @param {string} [title]
- */
-function isTrailerTitle(title = '') {
-  return /trailer|트레일러/iu.test(title);
+function isPreviewContent(title = '') {
+  return /teaser|티저|trailer|트레일러/iu.test(title);
 }
 
 /** Vlog / diary / behind-the-scenes lifestyle cues for dual Shorts + 官方綜藝/物料 placement. */
@@ -102,13 +93,13 @@ function isVlogVarietyContent(title = '', description = '') {
 /**
  * Content classification without the Shorts-tab gate.
  * Strong performance cues run before episode/variety markers so a Show Champion
- * fancam titled "EP.602" is stage, not 官方綜藝/物料. Teasers stay other; trailers are original.
- * A teaser title is other even when it also says MV, trailer, or the stored type is mv.
+ * fancam titled "EP.602" is stage, not 官方綜藝/物料.
+ * Teaser and trailer titles are original even when they also say MV.
+ * Interview, behind-the-scenes, making, and reaction stay other.
  * @returns {import('../types').VideoGenre}
  */
 function classifyContentGenre(title = '', description = '', channel = '', type = '') {
-  if (isTeaserTitle(title)) return 'other';
-  if (isTrailerTitle(title)) return 'original';
+  if (isPreviewContent(title)) return 'original';
 
   // Speeches and lineup posts mention a music show but are not the performance.
   const hardOther = /behind|비하인드|bh2nd|interview|인터뷰|making|메이킹|reaction|리액션|unboxing|언박싱|commentary|코멘터리|직캠보고서|幕後|幕后|수상소감|라인업|출챔/iu.test(title);
@@ -144,18 +135,17 @@ function classifyVideoGenres(title = '', description = '', channel = '', url = '
   // Every official Hearts2Hearts Shorts/challenge is on the Shorts tab.
   // Hashtag-only captions, teasers, and interviews do not opt out.
   // A stored mv/stage/original value must not replace that membership.
-  // Vlog/variety cues may add 官方綜藝/物料 as a second tab.
+  // Vlog, variety, teaser, or trailer cues may add 官方綜藝/物料 as a second tab.
   if (official && shortsFormat) {
     /** @type {import('../types').VideoGenre[]} */
     const genres = ['shorts'];
-    if (isVlogVarietyContent(title, description)) genres.push('original');
+    if (isVlogVarietyContent(title, description) || isPreviewContent(title)) genres.push('original');
     return genres;
   }
 
-  // teaser/티저 → other, even when the title also says trailer or MV.
-  // trailer/트레일러 → 官方綜藝/物料. A stored mv value does not move either one.
-  if (isTeaserTitle(title)) return ['other'];
-  if (isTrailerTitle(title)) return ['original'];
+  // teaser/티저/trailer/트레일러 → 官方綜藝/物料, including MV Teaser.
+  // A stored mv value does not put these on the MV tab.
+  if (isPreviewContent(title)) return ['original'];
 
   // Stored mv/stage/original wins over the title heuristic. `video` and `shorts`
   // are formats, and stored `other` is only the fallback when no clearer cue exists.

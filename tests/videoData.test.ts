@@ -275,13 +275,13 @@ test('classifyVideoGenre accurately categorizes into 5 distinct types', () => {
   assert.equal(classifyVideoGenre('Hearts2Hearts - INTRO + Lemon Tang #2026SBS가요대전Summer', '', 'SBS Entertainment'), 'stage');
   assert.equal(classifyVideoGenre('Relay Dance #shorts', '', 'M2'), 'stage');
 
-  // 4. Original Content (Vlogs, reality series, self-produced content)
+  // 4. Original Content (Vlogs, reality series, teasers, trailers)
   assert.equal(classifyVideoGenre('ICONIC POWER RACE | 둘셋하투하 EP.4', '', 'Hearts2Hearts'), 'original');
   assert.equal(classifyVideoGenre('琴房隨筆 VLOG EP.01', '', 'Hearts2Hearts'), 'original');
   assert.equal(classifyVideoGenre('轉學生 Hearts2Hearts | 아는 형님 520회', '', '아는형님 Knowingbros'), 'original');
+  assert.equal(classifyVideoGenre("[Teaser] Hearts2Hearts 'Next Chapter' MV Teaser #1", '', 'Hearts2Hearts'), 'original');
 
-  // 5. Other Official / Semi-official Content (Behind-the-scenes, interviews, covers, lyric videos, teasers)
-  assert.equal(classifyVideoGenre("[Teaser] Hearts2Hearts 'Next Chapter' MV Teaser #1", '', 'Hearts2Hearts'), 'other');
+  // 5. Other Official / Semi-official Content (Behind-the-scenes, interviews, covers, lyric videos)
   assert.equal(classifyVideoGenre("Promotion Event in Japan BH2ND #1 (Behind)", '', 'Hearts2Hearts'), 'other');
   assert.equal(classifyVideoGenre("Hearts2Hearts Album Unboxing & Interview", '', 'Hearts2Hearts'), 'other');
 });
@@ -323,7 +323,7 @@ test('real title and channel cues stay out of other', () => {
     'shorts',
   );
   assert.equal(classifyVideoGenre('STYLE 手勢舞挑戰', '', '1theK'), 'other');
-  assert.equal(classifyVideoGenre("[Teaser] Hearts2Hearts 'The Chase' MV Teaser", '', 'SMTOWN'), 'other');
+  assert.equal(classifyVideoGenre("[Teaser] Hearts2Hearts 'The Chase' MV Teaser", '', 'SMTOWN'), 'original');
   assert.equal(
     classifyVideoGenre('#shorts #하츠투하츠 컴백인터뷰 (Hearts2Hearts Interview) [뮤직뱅크/Music Bank]', '', 'KBS Kpop'),
     'other',
@@ -369,38 +369,34 @@ test('官方綜藝/物料 is the visible name of the original tab', () => {
   assert.equal(FIVE_CATEGORIES.original.shortLabel, '綜藝');
 });
 
-test('teasers stay other and trailers go to 官方綜藝/物料 unless they are official Shorts', () => {
+test('teasers and trailers go to 官方綜藝/物料 unless they are official Shorts', () => {
   const shortsUrl = 'https://www.youtube.com/shorts/abcdefghijk';
-  const teasers = [
+  const previews = [
     "Hearts2Hearts 'ICONIC HEART' MV Teaser",
     '[Teaser] Hearts2Hearts Carmen Artist Teaser',
     '하츠투하츠 FOCUS 티저',
     "Hearts2Hearts 'FOCUS' MV Teaser Trailer",
-  ];
-  for (const title of teasers) {
-    assert.equal(classifyVideoGenre(title, '', 'Hearts2Hearts'), 'other');
-    assert.equal(classifyVideoGenre(title, '', 'SMTOWN', '', 'mv'), 'other');
-    assert.deepEqual(classifyVideoGenres(title, '', '1theK', shortsUrl, 'shorts'), ['other']);
-  }
-  const trailers = [
     "Hearts2Hearts 2026 Season's Greetings Trailer",
     "SEASON'S GREETINGS TRAILER",
     'Hearts2Hearts Season Greeting trailer',
     'Hearts2Hearts 시즌그리팅 트레일러',
   ];
-  for (const title of trailers) {
+  for (const title of previews) {
     assert.equal(classifyVideoGenre(title, '', 'Hearts2Hearts'), 'original');
     assert.equal(classifyVideoGenre(title, '', 'SMTOWN', '', 'mv'), 'original');
     assert.equal(classifyVideoGenre(title, '', 'SMTOWN', '', 'other'), 'original');
+    assert.deepEqual(classifyVideoGenres(title, '', '1theK', shortsUrl, 'shorts'), ['original']);
   }
   assert.equal(classifyVideoGenre("Hearts2Hearts 'ICONIC HEART' MV", '', 'SMTOWN'), 'mv');
+  assert.equal(classifyVideoGenre('Hearts2Hearts Album Unboxing & Interview', '', 'Hearts2Hearts'), 'other');
+  assert.equal(classifyVideoGenre('Promotion Event in Japan BH2ND #1 (Behind)', '', 'Hearts2Hearts'), 'other');
   assert.deepEqual(
     classifyVideoGenres("Hearts2Hearts 'FOCUS' MV Teaser", '', 'Hearts2Hearts', shortsUrl, 'video'),
-    ['shorts'],
+    ['shorts', 'original'],
   );
   assert.deepEqual(
     classifyVideoGenres("Hearts2Hearts 2026 Season's Greetings Trailer", '', 'Hearts2Hearts', shortsUrl, 'video'),
-    ['shorts'],
+    ['shorts', 'original'],
   );
 });
 
