@@ -8,8 +8,9 @@ import { H2H_MEMBERS, MOCK_VIDEOS } from './data/h2hData';
 import type { MemberMatchMode, MemberName, SortOrder, VideoItem, VideoGenre } from './types';
 import { supabase, supabaseConfigError } from './lib/supabase';
 import { fetchArchiveVideos } from './lib/archive';
-import { MemberSelector } from './components/MemberSelector';
+import { MemberSelector, memberMatchHint, memberMatchLabel } from './components/MemberSelector';
 import { VideoCard } from './components/VideoCard';
+import { VideoModal } from './components/VideoModal';
 import { Footer } from './components/Footer';
 import {
   filterVideosByMembers,
@@ -29,6 +30,7 @@ import {
   Loader2,
   RefreshCw,
   Sparkles,
+  Mic,
   Tv,
   Clock,
   History,
@@ -50,11 +52,12 @@ export default function App() {
 
   // Member selection state (multiple selection supported)
   const [selectedMembers, setSelectedMembers] = useState<MemberName[]>([]);
+  const [playing, setPlaying] = useState<VideoItem | null>(null);
 
   // Member matching mode: 'including' (contains all selected) vs 'only' (strictly only selected)
   const [memberMatchMode, setMemberMatchMode] = useState<MemberMatchMode>('including');
 
-  // Video 5-category filter: 'all' | 'mv' | 'shorts' | 'stage' | 'original' | 'other'
+  // Category filter: 'all' | 'mv' | 'shorts' | 'stage' | 'original' | 'interview' | 'other'
   const [groupFilter, setGroupFilter] = useState<FilterGroup>('all');
 
   // Video sort order: 'new' | 'old' | 'popular'
@@ -128,8 +131,8 @@ export default function App() {
 
   const hasViewCounts = videos.some(video => parseViewsCount(video.views) > 0);
   const allCount = memberFilteredBase.length;
-  const { mv: mvCount, shorts: shortsCount, stage: stageCount, original: originalCount, other: otherCount } = useMemo(() => {
-    const counts = { mv: 0, shorts: 0, stage: 0, original: 0, other: 0 };
+  const { mv: mvCount, shorts: shortsCount, stage: stageCount, original: originalCount, interview: interviewCount, other: otherCount } = useMemo(() => {
+    const counts = { mv: 0, shorts: 0, stage: 0, original: 0, interview: 0, other: 0 };
     for (const video of memberFilteredBase) {
       for (const genre of getVideoGroups(video)) counts[genre]++;
     }
@@ -220,10 +223,10 @@ export default function App() {
             <span>H2H Video & Shorts Archive</span>
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-slate-900">
-            Hearts2Hearts 成員標籤搜尋
+            Hearts2Hearts 成員標籤篩選
           </h1>
           <p className="text-sm sm:text-base text-slate-600 font-normal">
-            依成員標籤搜尋影片；文字推測及舊資料標籤未經同框核實
+            「包含全部」要有每一個所選標籤，其他標籤可以留著。「剛好等於」則標籤組合必須完全相同。
           </p>
         </div>
 
@@ -232,7 +235,7 @@ export default function App() {
             ? '目前為示範資料：標題與成員資訊僅供介面測試，示範卡片不提供播放連結。'
             : dataSource === 'error' ? fetchError
             : dataSource === 'empty' ? '目前沒有可讀取的影片資料；請檢查資料庫內容與公開讀取政策。'
-            : `已載入資料庫可讀取的影片（共 ${videos.length} 部）；成員標籤為文字關聯，不保證實際同框。`}</p>
+            : `已載入資料庫可讀取的影片（共 ${videos.length} 部）。篩選只比較已儲存的成員標籤。`}</p>
           {!isLoading && (
             <div className="flex gap-4">
               <button onClick={fetchVideosFromSupabase} className="underline text-rose-700">重新讀取資料</button>
@@ -288,7 +291,7 @@ export default function App() {
 
         {/* 2. 影片分類群組切換（Filter Tabs）與排序／搜尋 */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-3 sm:p-4 shadow-2xs flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-          {/* 5 Distinct Categories Segmented Filter Tabs */}
+          {/* Category filter tabs */}
           <div className="flex items-center gap-1 p-1 bg-slate-100/90 rounded-xl text-xs font-semibold overflow-x-auto no-scrollbar w-full xl:w-auto">
             {/* 1. 全部 (All) */}
             <button
@@ -370,7 +373,7 @@ export default function App() {
               )}
             </button>
 
-            {/* 5. 自製團綜 (Original Content) */}
+            {/* 5. 官方綜藝/物料 */}
             <button
               type="button"
               onClick={() => setGroupFilter('original')}
@@ -382,7 +385,7 @@ export default function App() {
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-              <span>綜藝與 Vlog</span>
+              <span>{FIVE_CATEGORIES.original.label}</span>
               {!isLoading && (
                 <span className="text-[11px] font-mono tabular-nums opacity-75">
                   ({originalCount})
@@ -390,7 +393,27 @@ export default function App() {
               )}
             </button>
 
-            {/* 6. 其他官方影音 (Other Official / Semi-official) */}
+            {/* 6. 訪問 */}
+            <button
+              type="button"
+              onClick={() => setGroupFilter('interview')}
+              aria-pressed={groupFilter === 'interview'}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                groupFilter === 'interview'
+                  ? 'bg-white text-indigo-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Mic className="w-3.5 h-3.5 text-indigo-500" />
+              <span>{FIVE_CATEGORIES.interview.label}</span>
+              {!isLoading && (
+                <span className="text-[11px] font-mono tabular-nums opacity-75">
+                  ({interviewCount})
+                </span>
+              )}
+            </button>
+
+            {/* 7. 其他影音 */}
             <button
               type="button"
               onClick={() => setGroupFilter('other')}
@@ -502,62 +525,27 @@ export default function App() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/80">
                 <div>
                   <h2 className="text-lg sm:text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <span>{selectedMembers.length > 0 ? '標籤搜尋結果' : '全部收錄影片'}</span>
+                    <span>{selectedMembers.length > 0 ? '標籤篩選結果' : '全部收錄影片'}</span>
                     <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                       共 {filteredVideos.length} 部
                     </span>
                     {selectedMembers.length > 0 && (
                       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                        {memberMatchMode === 'only' ? '僅限 (Only)' : '包含 (Including)'}
+                        {memberMatchLabel(memberMatchMode)}
                       </span>
                     )}
                   </h2>
                   <p className="text-xs text-slate-500 mt-1">
                     {selectedMembers.length > 0 ? (
-                      <>
-                        <span>{memberMatchMode === 'only' ? '標籤恰好等於：' : '必須包含標籤：'}</span>
-                        <span className="font-semibold text-rose-700 ml-1">
-                          {selectedMembers.join(' + ')}
-                        </span>
-                      </>
+                      memberMatchHint(memberMatchMode, selectedMembers)
                     ) : (
-                      <span>顯示全部影片；可點選上方成員頭像篩選未核實標籤</span>
+                      <span>尚未選擇成員，顯示全部影片。</span>
                     )}
-                    <span className="text-slate-400 ml-2 hidden sm:inline">{dataSource === 'demo' ? '（示範卡片不提供播放）' : '（點擊卡片將於新分頁開啟 YouTube）'}</span>
+                    <span className="text-slate-400 ml-2 hidden sm:inline">{dataSource === 'demo' ? '（示範卡片不提供播放）' : '（點擊卡片在本頁播放，對話框內可改開 YouTube）'}</span>
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  {/* Mode switch button - shown when members are selected */}
-                  {selectedMembers.length > 0 && (
-                    <div className="flex items-center p-0.5 bg-slate-100 rounded-lg text-xs font-medium">
-                      <button
-                        type="button"
-                        onClick={() => setMemberMatchMode('including')}
-                        aria-pressed={memberMatchMode === 'including'}
-                        className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
-                          memberMatchMode === 'including'
-                            ? 'bg-white text-rose-600 shadow-2xs font-semibold'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        包含 (Including)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMemberMatchMode('only')}
-                        aria-pressed={memberMatchMode === 'only'}
-                        className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
-                          memberMatchMode === 'only'
-                            ? 'bg-white text-rose-600 shadow-2xs font-semibold'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        僅限 (Only)
-                      </button>
-                    </div>
-                  )}
-
                   {fetchError && (
                     <button
                       onClick={fetchVideosFromSupabase}
@@ -588,6 +576,7 @@ export default function App() {
                       key={video.id}
                       video={video}
                       selectedMembers={selectedMembers}
+                      onPlay={setPlaying}
                     />
                   ))}
                 </div>
@@ -602,7 +591,7 @@ export default function App() {
                   </h4>
                   <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
                     {selectedMembers.length > 0 ? (
-                      <>所選成員 <strong>{selectedMembers.join(' + ')}</strong> 在「{groupFilter === 'all' ? '全部' : FIVE_CATEGORIES[groupFilter]?.label || groupFilter}」分類下尚未有符合記錄，請嘗試切換分類、切換為包含模式或調整選取組合。</>
+                      <>所選成員 <strong>{selectedMembers.join(' + ')}</strong> 在「{groupFilter === 'all' ? '全部' : FIVE_CATEGORIES[groupFilter]?.label || groupFilter}」分類下尚未有符合記錄，請嘗試切換分類、改為「包含全部」或調整選取組合。</>
                     ) : (
                       <>在「{groupFilter === 'all' ? '全部' : FIVE_CATEGORIES[groupFilter]?.label || groupFilter}」分類或目前關鍵字下查無影片，請嘗試清除關鍵字或切換分類。</>
                     )}
@@ -631,6 +620,12 @@ export default function App() {
           )}
         </section>
       </main>
+
+      <VideoModal
+        video={playing}
+        onClose={() => setPlaying(null)}
+        onSelectMember={handleToggleMember}
+      />
 
       {/* 4. Minimalist Footer */}
       <Footer />

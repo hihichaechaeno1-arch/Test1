@@ -70,13 +70,13 @@ src/index.css                        Fonts, focus-visible defaults, image helper
 src/assets/images/*.jpg              Preserved original images
 src/assets/images/*.webp             Smaller derivatives used by build
 src/components/MemberSelector.tsx     Active controlled member controls
-src/components/VideoCard.tsx          Active live link/demo article + local image failure
+src/components/VideoCard.tsx          Active card; live cards open the in-page player
+src/components/VideoModal.tsx        Active YouTube embed, with a YouTube link as fallback
 src/components/Footer.tsx             Active footer/scroll-to-top
 src/components/Navbar.tsx             Dormant multi-tab navigation
 src/components/HeroSection.tsx        Dormant promotional layout
 src/components/MemberProfiles.tsx     Dormant profiles
 src/components/PairingRecommendations.tsx  Dormant recommendations
-src/components/VideoModal.tsx         Dormant embedded playback
 ```
 
 ## 4. Active component/interface boundaries
@@ -90,6 +90,7 @@ main → App
        ├── Five genre tabs + sort + labeled keyword search
        ├── Loading / no selection / results / empty results
        │   └── VideoCard × matching records
+       ├── VideoModal (live YouTube embed; demo cards do not open it)
        └── Footer
 ```
 
@@ -98,8 +99,9 @@ main → App
 | `mapSupabaseRowToVideoItem(value: unknown)` | Validate/normalize external legacy or canonical rows into `VideoItem`. |
 | `getYoutubeId(value)` | Recognize exact valid ID/approved YouTube URL forms. |
 | `fetchArchiveVideos(client, signal?, rowFormat?)` | Fetch complete publicly readable ranges with explicit projections; reject partial/error results. |
-| `MemberSelector({ members, selectedMembers, onToggleMember, onClearAll })` | Controlled toggles, count, chips, clear actions; exposes toggle state. |
-| `VideoCard({ video, selectedMembers })` | Live link or non-playable demo article; highlights tags; bounded image-error state. |
+| `MemberSelector({ members, selectedMembers, onToggleMember, onClearAll, matchMode, onMatchModeChange })` | One including/only control. Including requires every selected tag; only requires an exact stored set. |
+| `VideoCard({ video, selectedMembers, onPlay })` | Live card opens the player; demo stays a non-playable article. |
+| `VideoModal({ video, onClose, onSelectMember })` | YouTube nocookie embed plus a link out to YouTube. Demo videos are not rendered. |
 | `detectMembers(text)` | Conservative text inference only. |
 | `loadConfig(env?, args?)` | Fail-closed importer settings/allowlist/window/budget validation. |
 | `syncVideos({ client, fetchImpl?, ...config })` | Observable ingestion boundary; returns structured outcome. |
@@ -174,7 +176,6 @@ These are retained deliberately, not exposed as implemented features:
 | HeroSection | Scroll/explore callbacks and promotional text; historical AND/OR claims must be reviewed before activation. |
 | MemberProfiles | Profile grid and select/scroll callback; unsourced facts require owner review. |
 | PairingRecommendations | Six pairings and optional mode callback; active page has five inline presets instead. |
-| VideoModal | Nocookie embeds and Escape/backdrop close; no active modal state, and focus-management review is required before activation. |
 
 They remain in type-check scope. Dormant clickable divs/modal semantics were not declared fully accessible solely because active controls were improved.
 

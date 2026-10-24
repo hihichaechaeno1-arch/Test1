@@ -28,9 +28,13 @@ Member names appear in types, profile/sample data, presets, importer aliases, an
 ## 3. Video contract
 
 `VideoType = 'video' | 'shorts'`.
-`VideoGenre = 'mv' | 'shorts' | 'stage' | 'original' | 'other'` drives the five active content tabs. A video may belong to **more than one** tab via `genres[]` (for example official vlog Shorts → `shorts` + `original`). `VideoCategory` additionally accepts legacy `all/dance/vlog/variety` metadata; it is not used as an ownership assertion. Derived `genre` / `genres` are computed at the mapping/UI boundary (not stored in Supabase). `getVideoGroups` returns all memberships; `getVideoGroup` returns the primary (first) code.
+`VideoGenre = 'mv' | 'shorts' | 'stage' | 'original' | 'interview' | 'other'` drives the content tabs. A video may belong to **more than one** tab via `genres[]` (for example official vlog Shorts → `shorts` + `original`). `VideoCategory` additionally accepts legacy `all/dance/vlog/variety` metadata; it is not used as an ownership assertion. Derived `genre` / `genres` are computed at the mapping/UI boundary (not stored in Supabase). `getVideoGroups` returns all memberships; `getVideoGroup` returns the primary (first) code.
 
-**Shorts tab rule:** only Hearts2Hearts **official** channel Shorts/challenges. Non-official Shorts are classified by content into `stage` / `original` / `other` and never appear under Shorts.
+**Shorts tab rule:** only Hearts2Hearts **official** channel Shorts/challenges. Non-official Shorts are classified by content into `stage` / `original` / `interview` / `other` and never appear under Shorts.
+
+**`original` tab** is labeled 官方綜藝/物料 (Official Variety / Content). Titles with `teaser`, `티저`, `trailer`, or `트레일러` map here, including MV Teasers and Season's Greetings Trailers.
+
+**`interview` tab** is labeled 訪問. It includes music-show comeback interviews (`interview`, `인터뷰`, `컴백인터뷰`), Show Champion acceptance speeches (`수상소감`), and `출챔` / `출챔합니다` appearance posts. Music-show lineup announcements (`라인업`, `LINE-UP`, `lineup`) stay `other`. An official-channel Short still lists `shorts` first and may also include `interview` or `original`.
 
 `MemberMatchMode = 'including' | 'only' | 'AND' | 'OR'`; the active UI uses including/all-selected and only/exact-stored-tag-set. `SortOrder = 'new' | 'old' | 'popular'`; unknown dates remain last. Popularity is disabled in the UI if usable counts are absent.
 

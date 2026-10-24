@@ -10,16 +10,18 @@ Tags are unverified associations and can originate from text inference or older 
 
 1. Wait for loading to finish and check the visible data-source message.
 2. Select at least one member using their avatar/name button.
-3. Choose match mode: **including** (all selected tags present; extras allowed) or **only** (exact stored tag set).
-4. Optionally narrow with a content-category tab: **全部**, **MV**, **官方 Shorts**, **舞台**, **綜藝**, or **其他**.
+3. Choose one match mode. **包含全部** means every selected tag is present and extras are allowed. **剛好等於** means the stored tag set is exactly the selection. The switch lives once, above the member avatars.
+4. Optionally narrow with a content-category tab: **全部**, **MV**, **官方 Shorts**, **舞台**, **官方綜藝/物料**, **訪問**, or **其他**.
 5. Optionally search title, channel, or description, and choose sort (new / old / popular when view counts exist).
 6. Open a live card in YouTube; demo cards are non-playable.
 
 **Category rules (current):**
-- **官方 Shorts**：只收 Hearts2Hearts 官方頻道的 Shorts／挑戰。官方 Vlog 類 Shorts（例如琴房、後台日記）會**同時**出現在 Shorts 與綜藝。
-- 其他頻道的 Shorts／挑戰不會進 Shorts tab，會按內容分到舞台、綜藝、或其他影音。
+- **官方 Shorts**：只收 Hearts2Hearts 官方頻道的 Shorts／挑戰。官方 Vlog、預告、trailer 類 Shorts 會**同時**出現在 Shorts 與官方綜藝/物料。
+- **官方綜藝/物料**：團綜、Vlog，以及 `teaser`／`티저`／`trailer`／`트레일러`（含 MV Teaser 與 Season's Greetings Trailer）。
+- **訪問**：音樂番回歸訪談（`interview`／`인터뷰`／`컴백인터뷰`）、Show Champion 獲獎感言（`수상소감`）、以及 `출챔`／`출챔합니다` 出演預告。音樂番 **라인업**／LINE-UP 陣容公告留在其他。幕後、making、reaction 也留在其他。
+- 其他頻道的 Shorts／挑戰不會進 Shorts tab，會按內容分到舞台、官方綜藝/物料、或其他影音。
 
-In **including** mode, Carmen + Jiwoo finds records tagged with both; additional members on the record are allowed. **Only** mode requires the stored tag set to match the selection exactly. No selection displays a prompt rather than the entire archive.
+In **包含全部**, Jiwoo + Ian finds records whose stored tags include both; additional members on the record are allowed. **剛好等於** requires the stored tag set to match the selection exactly, including order-independent names and no extras. No selection shows the whole loaded archive. Tags are stored associations, not proof of who is on screen.
 
 ## Selection and presets
 
@@ -62,9 +64,7 @@ Use **重新讀取資料** to retry/refetch, or **檢視示範資料** to delibe
 
 ## Cards and images
 
-Live cards show title, channel, description, content-category badge, member tags marked **未核實**, publication date, and optional display metadata. Playback uses a valid `watch?v=` link. No embedded modal is active.
-
-Missing duration/date values display `未提供`; view text may be blank. Public minimal projections do not currently load optional duration/views/category/highlight columns. Cards lazy-load images and replace failed images with a local visual placeholder; member avatars fall back to initials.
+Live cards open an in-page YouTube embed (`youtube-nocookie`) and still link out to `watch?v=`. Demo cards are articles and do not play. Member tags are marked **未核實**. Missing duration/date values display `未提供`; view text may be blank. Public minimal projections do not currently load optional duration/views/category/highlight columns. Cards lazy-load images and replace failed images with a local visual placeholder; member avatars fall back to initials.
 
 Demo records are sorted newest-first. Successful database records are ordered by publication date with ID tie-breaking.
 
@@ -78,7 +78,7 @@ Member and format controls expose selected toggle state. Search has an accessibl
 
 Filter state is not saved in URLs or local storage. There are no accounts, favorites, uploads, editing controls, or saved searches.
 
-Member profiles, standalone recommendation navigation, AND/OR mode, and embedded playback exist only as dormant source components, not active product features.
+Member profiles and standalone recommendation navigation remain dormant. Live cards open the YouTube embed; demo cards do not. Legacy AND/OR match modes stay in the filter function and are not shown as extra controls.
 
 ## Troubleshooting
 

@@ -78,20 +78,20 @@ async function serve(directory) {
       });
       return route.fulfill({ status: 200, headers: { ...headers, 'content-range': `${offset}-${offset + selected.length - 1}/${data.length}` }, body: JSON.stringify(selected) });
     });
-    const cards = () => page.locator('a[href^="https://www.youtube.com/watch?v="]');
+    const cards = () => page.locator('[data-playback-id]');
     await page.goto(demo.url);
     await page.getByText('目前為示範資料：', { exact: false }).waitFor();
     assert.equal(await page.locator('article').count(), 16);
     assert.equal(await cards().count(), 0);
     await page.getByRole('button', { name: '選取 Carmen', exact: true }).click();
-    await page.getByRole('button', { name: '僅限 (Only)', exact: true }).first().click();
+    await page.getByRole('button', { name: '剛好等於', exact: true }).click();
     assert.equal(await page.locator('article').count(), 1);
     await page.getByRole('searchbox').fill('nonexistent-fixture');
     await page.getByText('暫時沒有找到符合條件的影片').waitFor();
     assert.equal(await page.locator('article').count(), 0);
     await page.getByRole('searchbox').fill('');
     await page.getByRole('button', { name: 'Carmen & Jiwoo', exact: true }).click();
-    await page.getByRole('button', { name: '包含 (Including)', exact: true }).first().click();
+    await page.getByRole('button', { name: '包含全部', exact: true }).click();
     assert.equal(await page.locator('article').count(), 3);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
 
@@ -100,15 +100,23 @@ async function serve(directory) {
     assert.equal(await cards().count(), 3);
     assert.equal(requests.filter(request => request.mode === 'missing-description').length, 3);
     assert.ok(requests.every(request => !request.select.includes('*')));
-    assert.equal(await cards().first().getAttribute('href'), 'https://www.youtube.com/watch?v=aaaaaaaaaa3');
+    assert.equal(await cards().first().getAttribute('data-playback-id'), 'aaaaaaaaaa3');
+    await cards().first().click();
+    await page.getByRole('dialog').waitFor();
+    assert.equal(
+      await page.getByRole('link', { name: '在 YouTube 原網站開啟' }).getAttribute('href'),
+      'https://www.youtube.com/watch?v=aaaaaaaaaa3',
+    );
+    await page.getByRole('button', { name: '關閉', exact: true }).click();
+    await page.getByRole('dialog').waitFor({ state: 'hidden' });
     await page.getByRole('button', { name: '最舊', exact: true }).click();
-    assert.equal(await cards().first().getAttribute('href'), 'https://www.youtube.com/watch?v=aaaaaaaaaa1');
+    assert.equal(await cards().first().getAttribute('data-playback-id'), 'aaaaaaaaaa1');
     assert.equal(await page.getByRole('button', { name: '熱門', exact: true }).isDisabled(), true);
     await page.getByRole('button', { name: '選取 Carmen', exact: true }).click();
     await page.getByRole('button', { name: '選取 Jiwoo', exact: true }).click();
     assert.equal(await cards().count(), 1);
-    assert.equal(await cards().first().getAttribute('href'), 'https://www.youtube.com/watch?v=aaaaaaaaaa2');
-    await page.getByRole('button', { name: '僅限 (Only)', exact: true }).first().click();
+    assert.equal(await cards().first().getAttribute('data-playback-id'), 'aaaaaaaaaa2');
+    await page.getByRole('button', { name: '剛好等於', exact: true }).click();
     assert.equal(await cards().count(), 1);
     await page.getByRole('button', { name: '清除選擇', exact: true }).click();
     await page.getByRole('button', { name: '音樂錄影帶', exact: false }).click();

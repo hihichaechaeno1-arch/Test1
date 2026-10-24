@@ -9,6 +9,7 @@ import {
   sortVideoItems,
   classifyVideoGenre,
   classifyVideoGenres,
+  FIVE_CATEGORIES,
 } from '../src/lib/videoData';
 import type { VideoItem } from '../src/types';
 
@@ -108,7 +109,7 @@ test('five content categories: Shorts tab is official-channel only', () => {
     [{ channel: 'M2', title: 'Relay Dance #shorts' }, 'stage'],
     [{ channel: 'M2', type: 'shorts', title: 'Juun & A-na Cypher 幕後練習' }, 'other'],
     [{ channel: 'Mnet K-POP', title: 'Carmen 4K Fancam' }, 'stage'],
-    [{ channel: 'SBS Entertainment', title: 'Interview (Behind)' }, 'other'],
+    [{ channel: 'SBS Entertainment', title: 'Interview (Behind)' }, 'interview'],
     [{ channel: '아는형님 Knowingbros', title: 'Hearts2Hearts 방문' }, 'original'],
     [{ channel: 'Hearts2Hearts', title: 'different #Hearts2Hearts #JIWOO' }, 'other'],
     [{ channel: 'Unofficial Hearts2Hearts Fan', title: 'Unlabeled clip' }, 'other'],
@@ -117,7 +118,7 @@ test('five content categories: Shorts tab is official-channel only', () => {
   for (const [video, expected] of cases) assert.equal(getVideoGroup(video), expected);
 });
 
-test('official vlog Shorts appear in both Shorts and 綜藝 tabs', () => {
+test('official vlog Shorts appear in both Shorts and 官方綜藝/物料', () => {
   assert.deepEqual(
     getVideoGroups({
       channel: 'Hearts2Hearts 官方頻道',
@@ -238,6 +239,22 @@ test('filterVideosByMembers correctly handles "including" and "only" modes', () 
   // 3. Empty selection returns all videos (shows all videos when no member is selected)
   assert.deepEqual(filterVideosByMembers(pool, [], 'including'), pool);
   assert.deepEqual(filterVideosByMembers(pool, [], 'only'), pool);
+
+  const untagged: VideoItem = { ...soloCarmen, id: 'untagged', members: [], youtubeId: '55555555555' };
+  const jiwooIan: VideoItem = {
+    ...duoCarmenStella, id: 'jiwoo-ian', members: ['Ian', 'Jiwoo'], youtubeId: '66666666666',
+  };
+  const withUntagged = [...pool, untagged, jiwooIan];
+
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Jiwoo', 'Ian'], 'including').map(v => v.id), ['group-all', 'jiwoo-ian']);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Jiwoo', 'Ian'], 'only').map(v => v.id), ['jiwoo-ian']);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Ian', 'Jiwoo'], 'only').map(v => v.id), ['jiwoo-ian']);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Jiwoo'], 'including').map(v => v.id), ['trio-3', 'group-all', 'jiwoo-ian']);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Jiwoo'], 'only').map(v => v.id), []);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Carmen'], 'OR').map(v => v.id), ['solo-carmen', 'duo-carmen-stella', 'trio-3', 'group-all']);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Carmen', 'Stella'], 'AND').map(v => v.id), ['duo-carmen-stella', 'trio-3', 'group-all']);
+  assert.deepEqual(filterVideosByMembers([untagged], ['Carmen'], 'including'), []);
+  assert.deepEqual(filterVideosByMembers([untagged], ['Carmen'], 'only'), []);
 });
 
 test('classifyVideoGenre accurately categorizes into 5 distinct types', () => {
@@ -258,15 +275,167 @@ test('classifyVideoGenre accurately categorizes into 5 distinct types', () => {
   assert.equal(classifyVideoGenre('Hearts2Hearts - INTRO + Lemon Tang #2026SBS가요대전Summer', '', 'SBS Entertainment'), 'stage');
   assert.equal(classifyVideoGenre('Relay Dance #shorts', '', 'M2'), 'stage');
 
-  // 4. Original Content (Vlogs, reality series, self-produced content)
+  // 4. Original Content (Vlogs, reality series, teasers, trailers)
   assert.equal(classifyVideoGenre('ICONIC POWER RACE | 둘셋하투하 EP.4', '', 'Hearts2Hearts'), 'original');
   assert.equal(classifyVideoGenre('琴房隨筆 VLOG EP.01', '', 'Hearts2Hearts'), 'original');
   assert.equal(classifyVideoGenre('轉學生 Hearts2Hearts | 아는 형님 520회', '', '아는형님 Knowingbros'), 'original');
+  assert.equal(classifyVideoGenre("[Teaser] Hearts2Hearts 'Next Chapter' MV Teaser #1", '', 'Hearts2Hearts'), 'original');
 
-  // 5. Other Official / Semi-official Content (Behind-the-scenes, interviews, covers, lyric videos, teasers)
-  assert.equal(classifyVideoGenre("[Teaser] Hearts2Hearts 'Next Chapter' MV Teaser #1", '', 'Hearts2Hearts'), 'other');
+  // 5. Other Official / Semi-official Content (Behind-the-scenes, interviews, covers, lyric videos)
   assert.equal(classifyVideoGenre("Promotion Event in Japan BH2ND #1 (Behind)", '', 'Hearts2Hearts'), 'other');
-  assert.equal(classifyVideoGenre("Hearts2Hearts Album Unboxing & Interview", '', 'Hearts2Hearts'), 'other');
+  assert.equal(classifyVideoGenre("Hearts2Hearts Album Unboxing & Interview", '', 'Hearts2Hearts'), 'interview');
+});
+
+test('stored mv/stage/original wins, while stored other still yields to a clear title cue', () => {
+  assert.equal(classifyVideoGenre("Hearts2Hearts 'FOCUS' MV", '', 'SMTOWN', '', 'mv'), 'mv');
+  assert.equal(classifyVideoGenre('둘셋하투하 EP.7', '', 'Hearts2Hearts', '', 'stage'), 'stage');
+  assert.equal(classifyVideoGenre('Hearts2Hearts JIWOO FanCam', '', 'MBCkpop', '', 'original'), 'original');
+  assert.equal(classifyVideoGenre('Random hashtag clip #Hearts2Hearts', '', 'Hearts2Hearts', '', 'other'), 'other');
+  const musicCore = mapSupabaseRowToVideoItem({
+    youtube_id: 'abcdefghijk',
+    type: 'other',
+    channel: 'MBCkpop',
+    title: 'Hearts2Hearts (하츠투하츠) - ICONIC HEART (Korean Ver.) | Show! MusicCore | MBC261017방송',
+  });
+  assert.equal(musicCore.type, 'video');
+  assert.equal(musicCore.genre, 'stage');
+});
+
+test('real title and channel cues stay out of other', () => {
+  assert.equal(
+    classifyVideoGenre("Hearts2Hearts 하츠투하츠 'ICONIC HEART (Korean Ver.)' MV", '', 'SMTOWN'),
+    'mv',
+  );
+  assert.equal(
+    classifyVideoGenre('ICONIC HEART (Korean Ver.) - Hearts2Hearts [뮤직뱅크/Music Bank] | KBS 261016 방송', '', 'KBS Kpop'),
+    'stage',
+  );
+  assert.equal(
+    classifyVideoGenre('[쇼챔직캠 4K] Hearts2Hearts JIWOO (하츠투하츠 지우) - Lemon Tang | Show Champion | EP.602 | 260708', '', 'ALL THE K-POP'),
+    'stage',
+  );
+  assert.equal(
+    classifyVideoGenre('轉學生 Hearts2Hearts | 아는 형님 520회', '', '아는형님 Knowingbros'),
+    'original',
+  );
+  assert.equal(
+    classifyVideoGenres('Cute moment', '', 'Hearts2Hearts', 'https://www.youtube.com/shorts/abcdefghijk', 'shorts')[0],
+    'shorts',
+  );
+  assert.equal(classifyVideoGenre('STYLE 手勢舞挑戰', '', '1theK'), 'other');
+  assert.equal(classifyVideoGenre("[Teaser] Hearts2Hearts 'The Chase' MV Teaser", '', 'SMTOWN'), 'original');
+  assert.equal(
+    classifyVideoGenre('#shorts #하츠투하츠 컴백인터뷰 (Hearts2Hearts Interview) [뮤직뱅크/Music Bank]', '', 'KBS Kpop'),
+    'interview',
+  );
+  assert.equal(
+    classifyVideoGenre('[쇼챔 1위] Hearts2Hearts - Lemon Tang 수상소감 Full ver.', '', 'ALL THE K-POP'),
+    'interview',
+  );
+  assert.equal(
+    classifyVideoGenre('hit you right #Hearts2Hearts #하츠투하츠 #H2H #15LOVE', '', 'Hearts2Hearts'),
+    'other',
+  );
+});
+
+test('official Hearts2Hearts Shorts stay on the Shorts tab, including hashtag-only captions', () => {
+  const hashtag = 'oh♥ #Hearts2Hearts #하츠투하츠 #H2H #YE_ON #예온';
+  const shortsUrl = 'https://www.youtube.com/shorts/abcdefghijk';
+  for (const genres of [
+    classifyVideoGenres(hashtag, '', 'Hearts2Hearts', '', 'shorts'),
+    classifyVideoGenres(hashtag, '', 'Hearts2Hearts', shortsUrl, 'other'),
+    classifyVideoGenres(hashtag, '', 'Hearts2Hearts', shortsUrl, 'video'),
+    classifyVideoGenres(hashtag, '#shorts', 'Hearts2Hearts 官方頻道', '', 'video'),
+    classifyVideoGenres("[Teaser] Hearts2Hearts 'FOCUS' MV Teaser #shorts", '', 'Hearts2Hearts', '', 'video'),
+    classifyVideoGenres('컴백인터뷰 Hearts2Hearts Interview #shorts', '', 'Hearts2Hearts', '', 'shorts'),
+    classifyVideoGenres(hashtag, '', 'SMTOWN', shortsUrl, 'mv', 'UC7Q3HUnJA3nvjZR2JeMn2Cw'),
+  ]) {
+    assert.equal(genres[0], 'shorts');
+    assert.ok(genres.includes('shorts'));
+  }
+  assert.deepEqual(
+    classifyVideoGenres('hit you right #Hearts2Hearts #하츠투하츠 #H2H #15LOVE', '', 'Hearts2Hearts'),
+    ['other'],
+  );
+  assert.equal(
+    classifyVideoGenre('oh♥ #Hearts2Hearts #H2H', '', '1theK', shortsUrl, 'shorts'),
+    'other',
+  );
+});
+
+test('官方綜藝/物料 is the visible name of the original tab', () => {
+  assert.equal(FIVE_CATEGORIES.original.label, '官方綜藝/物料');
+  assert.equal(FIVE_CATEGORIES.original.englishLabel, 'Official Variety / Content');
+  assert.equal(FIVE_CATEGORIES.original.shortLabel, '綜藝');
+});
+
+test('訪問 covers comeback interviews, acceptance speeches, and 출챔 posts', () => {
+  assert.equal(FIVE_CATEGORIES.interview.label, '訪問');
+  assert.equal(FIVE_CATEGORIES.interview.englishLabel, 'Interview');
+  assert.equal(FIVE_CATEGORIES.interview.shortLabel, '訪問');
+  const interviews = [
+    '#하츠투하츠 컴백인터뷰 (Hearts2Hearts Interview) [뮤직뱅크/Music Bank]',
+    'Hearts2Hearts 인터뷰',
+    '[쇼챔 1위] Hearts2Hearts - Lemon Tang 수상소감 Full ver.',
+    'Hearts2Hearts 출챔합니다',
+    '출챔 Hearts2Hearts',
+  ];
+  for (const title of interviews) {
+    assert.equal(classifyVideoGenre(title, '', 'KBS Kpop'), 'interview');
+    assert.equal(classifyVideoGenre(title, '', 'ALL THE K-POP', '', 'stage'), 'interview');
+  }
+  assert.deepEqual(
+    classifyVideoGenres('컴백인터뷰 Hearts2Hearts Interview', '', 'Hearts2Hearts', 'https://www.youtube.com/shorts/abcdefghijk', 'video'),
+    ['shorts', 'interview'],
+  );
+  for (const title of [
+    'Hearts2Hearts LINE-UP | M Countdown',
+    '엠카운트다운 라인업',
+    'Hearts2Hearts lineup announcement',
+  ]) {
+    assert.equal(classifyVideoGenre(title, '', 'Mnet K-POP'), 'other');
+    assert.equal(classifyVideoGenre(title, '', 'Mnet K-POP', '', 'stage'), 'other');
+  }
+  assert.equal(
+    classifyVideoGenre('ICONIC HEART - Hearts2Hearts [뮤직뱅크/Music Bank]', '', 'KBS Kpop'),
+    'stage',
+  );
+  assert.equal(
+    classifyVideoGenre('[쇼챔직캠 4K] Hearts2Hearts JIWOO - Lemon Tang | Show Champion | EP.602', '', 'ALL THE K-POP'),
+    'stage',
+  );
+});
+
+test('teasers and trailers go to 官方綜藝/物料 unless they are official Shorts', () => {
+  const shortsUrl = 'https://www.youtube.com/shorts/abcdefghijk';
+  const previews = [
+    "Hearts2Hearts 'ICONIC HEART' MV Teaser",
+    '[Teaser] Hearts2Hearts Carmen Artist Teaser',
+    '하츠투하츠 FOCUS 티저',
+    "Hearts2Hearts 'FOCUS' MV Teaser Trailer",
+    "Hearts2Hearts 2026 Season's Greetings Trailer",
+    "SEASON'S GREETINGS TRAILER",
+    'Hearts2Hearts Season Greeting trailer',
+    'Hearts2Hearts 시즌그리팅 트레일러',
+  ];
+  for (const title of previews) {
+    assert.equal(classifyVideoGenre(title, '', 'Hearts2Hearts'), 'original');
+    assert.equal(classifyVideoGenre(title, '', 'SMTOWN', '', 'mv'), 'original');
+    assert.equal(classifyVideoGenre(title, '', 'SMTOWN', '', 'other'), 'original');
+    assert.deepEqual(classifyVideoGenres(title, '', '1theK', shortsUrl, 'shorts'), ['original']);
+  }
+  assert.equal(classifyVideoGenre("Hearts2Hearts 'ICONIC HEART' MV", '', 'SMTOWN'), 'mv');
+  assert.equal(classifyVideoGenre('Hearts2Hearts Album Unboxing & Interview', '', 'Hearts2Hearts'), 'interview');
+  assert.equal(classifyVideoGenre('Dance Practice Making', '', 'Hearts2Hearts'), 'other');
+  assert.equal(classifyVideoGenre('Promotion Event in Japan BH2ND #1 (Behind)', '', 'Hearts2Hearts'), 'other');
+  assert.deepEqual(
+    classifyVideoGenres("Hearts2Hearts 'FOCUS' MV Teaser", '', 'Hearts2Hearts', shortsUrl, 'video'),
+    ['shorts', 'original'],
+  );
+  assert.deepEqual(
+    classifyVideoGenres("Hearts2Hearts 2026 Season's Greetings Trailer", '', 'Hearts2Hearts', shortsUrl, 'video'),
+    ['shorts', 'original'],
+  );
 });
 
 

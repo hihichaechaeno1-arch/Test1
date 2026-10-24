@@ -5,12 +5,14 @@
 
 import React, { useState } from 'react';
 import { VideoItem, MemberName, VideoGenre } from '../types';
-import { ExternalLink, Play, Flame, Film, Users, Tv, Calendar, Sparkles, Layers } from 'lucide-react';
-import { getVideoGroups } from '../lib/videoData';
+import { ExternalLink, Play, Flame, Film, Users, Tv, Calendar, Sparkles, Layers, Mic } from 'lucide-react';
+import { getVideoGroups, getYoutubeId } from '../lib/videoData';
 
 interface VideoCardProps {
   video: VideoItem;
   selectedMembers: MemberName[];
+  /** Live cards open the in-page player. Demo cards ignore this and stay non-playable. */
+  onPlay?: (video: VideoItem) => void;
 }
 
 const GENRE_BADGE: Record<VideoGenre, { className: string; icon: React.ReactNode; label: string }> = {
@@ -32,7 +34,12 @@ const GENRE_BADGE: Record<VideoGenre, { className: string; icon: React.ReactNode
   original: {
     className: 'bg-emerald-600/95 text-white font-bold',
     icon: <Sparkles className="w-3.5 h-3.5 fill-white text-white" />,
-    label: '綜藝 / Vlog',
+    label: '官方綜藝/物料',
+  },
+  interview: {
+    className: 'bg-indigo-600/95 text-white font-bold',
+    icon: <Mic className="w-3.5 h-3.5 text-indigo-100" />,
+    label: '訪問',
   },
   other: {
     className: 'bg-purple-700/95 text-white font-semibold',
@@ -44,19 +51,22 @@ const GENRE_BADGE: Record<VideoGenre, { className: string; icon: React.ReactNode
 export const VideoCard: React.FC<VideoCardProps> = ({
   video,
   selectedMembers,
+  onPlay,
 }) => {
   const genres = getVideoGroups(video);
   const isShorts = genres.includes('shorts') || video.type === 'shorts';
-  const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtubeId}`;
+  const playbackId = getYoutubeId(video.youtubeId) || getYoutubeId(video.url);
+  const canPlay = !video.isSample && Boolean(playbackId) && Boolean(onPlay);
   const [failedImage, setFailedImage] = useState<string | null>(null);
-  const Card = video.isSample ? 'article' : 'a';
+  const Card = canPlay ? 'button' : 'article';
 
   return (
     <Card
-      href={video.isSample ? undefined : youtubeUrl}
-      target={video.isSample ? undefined : '_blank'}
-      rel={video.isSample ? undefined : 'noopener noreferrer'}
-      className="group bg-white rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-400"
+      type={canPlay ? 'button' : undefined}
+      onClick={canPlay ? () => onPlay?.(video) : undefined}
+      data-playback-id={canPlay ? playbackId : undefined}
+      aria-label={canPlay ? `在本頁播放 ${video.title}` : undefined}
+      className="group w-full bg-white rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-md transition-all duration-300 flex flex-col overflow-hidden text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-rose-400"
     >
       {/* 1. Thumbnail Container */}
       <div className="relative aspect-video w-full overflow-hidden bg-slate-100 shrink-0">
@@ -124,7 +134,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({
             </span>
 
             <span className="inline-flex items-center gap-1 text-[11px] text-rose-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-              <span>{video.isSample ? '示範資料・不提供播放' : '在 YouTube 開啟'}</span>
+              <span>{canPlay ? '在本頁播放' : '示範資料・不提供播放'}</span>
               <ExternalLink className="w-3 h-3" />
             </span>
           </div>

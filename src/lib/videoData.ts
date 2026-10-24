@@ -16,10 +16,11 @@ export const FIVE_CATEGORIES: Record<VideoGenre, { label: string; englishLabel: 
   mv: { label: '音樂錄影帶', englishLabel: 'Music Video', shortLabel: 'MV' },
   shorts: { label: '官方 Shorts 與挑戰', englishLabel: 'Official Shorts / Challenges', shortLabel: 'Shorts' },
   stage: { label: '舞台表演', englishLabel: 'Stage / Performance', shortLabel: '舞台' },
-  original: { label: '綜藝與 Vlog', englishLabel: 'Variety / Vlog', shortLabel: '綜藝' },
+  original: { label: '官方綜藝/物料', englishLabel: 'Official Variety / Content', shortLabel: '綜藝' },
+  interview: { label: '訪問', englishLabel: 'Interview', shortLabel: '訪問' },
   other: { label: '其他影音', englishLabel: 'Other Video', shortLabel: '其他' },
 };
-const CATEGORIES: readonly VideoCategory[] = ['all', 'mv', 'shorts', 'stage', 'original', 'other', 'dance', 'vlog', 'variety'];
+const CATEGORIES: readonly VideoCategory[] = ['all', 'mv', 'shorts', 'stage', 'original', 'interview', 'other', 'dance', 'vlog', 'variety'];
 
 function text(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value.trim() || fallback : fallback;
@@ -110,6 +111,14 @@ export function mapSupabaseRowToVideoItem(value: unknown): VideoItem {
   };
 }
 
+/**
+ * Stored-tag filter. Change match behavior only here.
+ * - no selection: every video
+ * - including (default) and legacy AND: members[] contains every selected name; extras allowed
+ * - only: members[] is exactly the selected set (same names, no extras)
+ * - legacy OR: at least one selected name is present
+ * Comparison uses stored members[] only. Tags are saved associations, not who is on screen.
+ */
 export function filterVideosByMembers(
   videos: VideoItem[], selectedMembers: MemberName[], matchMode: MemberMatchMode = 'including',
 ): VideoItem[] {
@@ -118,8 +127,9 @@ export function filterVideosByMembers(
   return videos.filter(video => {
     const members = normalizeMembers(video.members);
     if (matchMode === 'OR') return selected.some(member => members.includes(member));
-    return selected.every(member => members.includes(member)) &&
-      (matchMode !== 'only' || selected.length === members.length);
+    const containsAll = selected.every(member => members.includes(member));
+    if (!containsAll) return false;
+    return matchMode !== 'only' || selected.length === members.length;
   });
 }
 

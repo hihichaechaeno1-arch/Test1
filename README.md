@@ -63,6 +63,6 @@ Start at [docs/README.md](docs/README.md). For a full current review, see [curre
 
 ## Scope and ownership
 
-The active page has member controls, five presets, five content-category tabs, sorting, keyword search, video cards, and a footer. Category names do not certify official ownership or on-screen membership. Popularity is disabled when view counts are unavailable. Multi-tab navigation, member profiles, recommendation panels, and embedded playback components are retained but not mounted. No server, authentication, admin UI, or Gemini feature is implemented.
+The active page has member controls, five presets, five content-category tabs, sorting, keyword search, video cards, and an in-page YouTube player. Category names do not certify official ownership or on-screen membership. Popularity is disabled when view counts are unavailable. Multi-tab navigation, member profiles, and recommendation panels are retained but not mounted. No server, authentication, admin UI, or Gemini feature is implemented.
 
 This is an unofficial fan project. Existing SPDX headers do not establish asset rights or independently verify biographies. A root license must be confirmed by the owner rather than guessed. The current repairs remain local and uncommitted; no deployment or production data/configuration change was performed.
