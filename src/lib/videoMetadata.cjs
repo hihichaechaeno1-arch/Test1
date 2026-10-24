@@ -121,8 +121,11 @@ function classifyVideoGenres(title = '', description = '', channel = '', url = '
   const official = isOfficialHearts2HeartsChannel(channel, channelId);
   const shortsFormat = hasShortsFormatEvidence(title, description, url, type);
 
-  // Shorts tab stays official Hearts2Hearts Shorts/challenges only.
-  if (shortsFormat && official) {
+  // Every official Hearts2Hearts Shorts/challenge is on the Shorts tab.
+  // Hashtag-only captions, teasers, and interviews do not opt out.
+  // A stored mv/stage/original value must not replace that membership.
+  // Vlog/variety cues may add 綜藝 as a second tab.
+  if (official && shortsFormat) {
     /** @type {import('../types').VideoGenre[]} */
     const genres = ['shorts'];
     if (isVlogVarietyContent(title, description)) genres.push('original');

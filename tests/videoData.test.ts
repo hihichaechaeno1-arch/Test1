@@ -337,4 +337,29 @@ test('real title and channel cues stay out of other', () => {
   );
 });
 
+test('official Hearts2Hearts Shorts stay on the Shorts tab, including hashtag-only captions', () => {
+  const hashtag = 'oh♥ #Hearts2Hearts #하츠투하츠 #H2H #YE_ON #예온';
+  const shortsUrl = 'https://www.youtube.com/shorts/abcdefghijk';
+  for (const genres of [
+    classifyVideoGenres(hashtag, '', 'Hearts2Hearts', '', 'shorts'),
+    classifyVideoGenres(hashtag, '', 'Hearts2Hearts', shortsUrl, 'other'),
+    classifyVideoGenres(hashtag, '', 'Hearts2Hearts', shortsUrl, 'video'),
+    classifyVideoGenres(hashtag, '#shorts', 'Hearts2Hearts 官方頻道', '', 'video'),
+    classifyVideoGenres("[Teaser] Hearts2Hearts 'FOCUS' MV Teaser #shorts", '', 'Hearts2Hearts', '', 'video'),
+    classifyVideoGenres('컴백인터뷰 Hearts2Hearts Interview #shorts', '', 'Hearts2Hearts', '', 'shorts'),
+    classifyVideoGenres(hashtag, '', 'SMTOWN', shortsUrl, 'mv', 'UC7Q3HUnJA3nvjZR2JeMn2Cw'),
+  ]) {
+    assert.equal(genres[0], 'shorts');
+    assert.ok(genres.includes('shorts'));
+  }
+  assert.deepEqual(
+    classifyVideoGenres('hit you right #Hearts2Hearts #하츠투하츠 #H2H #15LOVE', '', 'Hearts2Hearts'),
+    ['other'],
+  );
+  assert.equal(
+    classifyVideoGenre('oh♥ #Hearts2Hearts #H2H', '', '1theK', shortsUrl, 'shorts'),
+    'other',
+  );
+});
+
 
