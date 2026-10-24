@@ -84,6 +84,20 @@ function isPreviewContent(title = '') {
   return /teaser|티저|trailer|트레일러/iu.test(title);
 }
 
+/** Music-show lineup announcements stay other. They are not the interview. */
+function isLineupTitle(title = '') {
+  return /라인업|\bline-?up\b/iu.test(title);
+}
+
+/**
+ * Comeback interviews, acceptance speeches, and Show Champion appearance posts.
+ * 출챔 does not match the performance marker 쇼챔.
+ * @param {string} [title]
+ */
+function isInterviewTitle(title = '') {
+  return /interview|인터뷰|수상소감|출챔/iu.test(title);
+}
+
 /** Vlog / diary / behind-the-scenes lifestyle cues for dual Shorts + 官方綜藝/物料 placement. */
 function isVlogVarietyContent(title = '', description = '') {
   const text = `${title}\n${description}`;
@@ -95,14 +109,17 @@ function isVlogVarietyContent(title = '', description = '') {
  * Strong performance cues run before episode/variety markers so a Show Champion
  * fancam titled "EP.602" is stage, not 官方綜藝/物料.
  * Teaser and trailer titles are original even when they also say MV.
- * Interview, behind-the-scenes, making, and reaction stay other.
+ * Comeback interviews, 수상소감, and 출챔 posts are interview.
+ * Lineup posts, behind-the-scenes, making, and reaction stay other.
  * @returns {import('../types').VideoGenre}
  */
 function classifyContentGenre(title = '', description = '', channel = '', type = '') {
   if (isPreviewContent(title)) return 'original';
+  if (isLineupTitle(title)) return 'other';
+  if (isInterviewTitle(title)) return 'interview';
 
-  // Speeches and lineup posts mention a music show but are not the performance.
-  const hardOther = /behind|비하인드|bh2nd|interview|인터뷰|making|메이킹|reaction|리액션|unboxing|언박싱|commentary|코멘터리|직캠보고서|幕後|幕后|수상소감|라인업|출챔/iu.test(title);
+  // Behind-the-scenes and similar posts mention a music show but are not the performance.
+  const hardOther = /behind|비하인드|bh2nd|making|메이킹|reaction|리액션|unboxing|언박싱|commentary|코멘터리|직캠보고서|幕後|幕后/iu.test(title);
   const fancam = /fancam|직캠|facecam|페이스캠|full\s*cam|풀캠/iu.test(title) && !/직캠보고서/iu.test(title);
   const broadcast = /music\s*core|음악중심|music\s*bank|뮤직뱅크|show\s*champion|쇼챔|inkigayo|인기가요|m\s*countdown|엠카운트다운|가요대전|gayo daejeon|on the spot|온더스팟|performing artist/iu.test(title);
   if ((fancam || broadcast) && !hardOther) return 'stage';
@@ -136,16 +153,20 @@ function classifyVideoGenres(title = '', description = '', channel = '', url = '
   // Hashtag-only captions, teasers, and interviews do not opt out.
   // A stored mv/stage/original value must not replace that membership.
   // Vlog, variety, teaser, or trailer cues may add 官方綜藝/物料 as a second tab.
+  // An interview Short may also appear under 訪問, with Shorts first.
   if (official && shortsFormat) {
     /** @type {import('../types').VideoGenre[]} */
     const genres = ['shorts'];
     if (isVlogVarietyContent(title, description) || isPreviewContent(title)) genres.push('original');
+    else if (isInterviewTitle(title) && !isLineupTitle(title)) genres.push('interview');
     return genres;
   }
 
   // teaser/티저/trailer/트레일러 → 官方綜藝/物料, including MV Teaser.
   // A stored mv value does not put these on the MV tab.
   if (isPreviewContent(title)) return ['original'];
+  if (isLineupTitle(title)) return ['other'];
+  if (isInterviewTitle(title)) return ['interview'];
 
   // Stored mv/stage/original wins over the title heuristic. `video` and `shorts`
   // are formats, and stored `other` is only the fallback when no clearer cue exists.

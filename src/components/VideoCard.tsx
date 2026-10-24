@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { VideoItem, MemberName, VideoGenre } from '../types';
-import { ExternalLink, Play, Flame, Film, Users, Tv, Calendar, Sparkles, Layers } from 'lucide-react';
+import { ExternalLink, Play, Flame, Film, Users, Tv, Calendar, Sparkles, Layers, Mic } from 'lucide-react';
 import { getVideoGroups, getYoutubeId } from '../lib/videoData';
 
 interface VideoCardProps {
@@ -35,6 +35,11 @@ const GENRE_BADGE: Record<VideoGenre, { className: string; icon: React.ReactNode
     className: 'bg-emerald-600/95 text-white font-bold',
     icon: <Sparkles className="w-3.5 h-3.5 fill-white text-white" />,
     label: '官方綜藝/物料',
+  },
+  interview: {
+    className: 'bg-indigo-600/95 text-white font-bold',
+    icon: <Mic className="w-3.5 h-3.5 text-indigo-100" />,
+    label: '訪問',
   },
   other: {
     className: 'bg-purple-700/95 text-white font-semibold',

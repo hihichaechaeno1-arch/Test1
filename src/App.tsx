@@ -30,6 +30,7 @@ import {
   Loader2,
   RefreshCw,
   Sparkles,
+  Mic,
   Tv,
   Clock,
   History,
@@ -56,7 +57,7 @@ export default function App() {
   // Member matching mode: 'including' (contains all selected) vs 'only' (strictly only selected)
   const [memberMatchMode, setMemberMatchMode] = useState<MemberMatchMode>('including');
 
-  // Video 5-category filter: 'all' | 'mv' | 'shorts' | 'stage' | 'original' | 'other'
+  // Category filter: 'all' | 'mv' | 'shorts' | 'stage' | 'original' | 'interview' | 'other'
   const [groupFilter, setGroupFilter] = useState<FilterGroup>('all');
 
   // Video sort order: 'new' | 'old' | 'popular'
@@ -130,8 +131,8 @@ export default function App() {
 
   const hasViewCounts = videos.some(video => parseViewsCount(video.views) > 0);
   const allCount = memberFilteredBase.length;
-  const { mv: mvCount, shorts: shortsCount, stage: stageCount, original: originalCount, other: otherCount } = useMemo(() => {
-    const counts = { mv: 0, shorts: 0, stage: 0, original: 0, other: 0 };
+  const { mv: mvCount, shorts: shortsCount, stage: stageCount, original: originalCount, interview: interviewCount, other: otherCount } = useMemo(() => {
+    const counts = { mv: 0, shorts: 0, stage: 0, original: 0, interview: 0, other: 0 };
     for (const video of memberFilteredBase) {
       for (const genre of getVideoGroups(video)) counts[genre]++;
     }
@@ -290,7 +291,7 @@ export default function App() {
 
         {/* 2. 影片分類群組切換（Filter Tabs）與排序／搜尋 */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-3 sm:p-4 shadow-2xs flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-          {/* 5 Distinct Categories Segmented Filter Tabs */}
+          {/* Category filter tabs */}
           <div className="flex items-center gap-1 p-1 bg-slate-100/90 rounded-xl text-xs font-semibold overflow-x-auto no-scrollbar w-full xl:w-auto">
             {/* 1. 全部 (All) */}
             <button
@@ -392,7 +393,27 @@ export default function App() {
               )}
             </button>
 
-            {/* 6. 其他官方影音 (Other Official / Semi-official) */}
+            {/* 6. 訪問 */}
+            <button
+              type="button"
+              onClick={() => setGroupFilter('interview')}
+              aria-pressed={groupFilter === 'interview'}
+              className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                groupFilter === 'interview'
+                  ? 'bg-white text-indigo-600 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Mic className="w-3.5 h-3.5 text-indigo-500" />
+              <span>{FIVE_CATEGORIES.interview.label}</span>
+              {!isLoading && (
+                <span className="text-[11px] font-mono tabular-nums opacity-75">
+                  ({interviewCount})
+                </span>
+              )}
+            </button>
+
+            {/* 7. 其他影音 */}
             <button
               type="button"
               onClick={() => setGroupFilter('other')}

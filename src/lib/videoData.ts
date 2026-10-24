@@ -17,9 +17,10 @@ export const FIVE_CATEGORIES: Record<VideoGenre, { label: string; englishLabel: 
   shorts: { label: '官方 Shorts 與挑戰', englishLabel: 'Official Shorts / Challenges', shortLabel: 'Shorts' },
   stage: { label: '舞台表演', englishLabel: 'Stage / Performance', shortLabel: '舞台' },
   original: { label: '官方綜藝/物料', englishLabel: 'Official Variety / Content', shortLabel: '綜藝' },
+  interview: { label: '訪問', englishLabel: 'Interview', shortLabel: '訪問' },
   other: { label: '其他影音', englishLabel: 'Other Video', shortLabel: '其他' },
 };
-const CATEGORIES: readonly VideoCategory[] = ['all', 'mv', 'shorts', 'stage', 'original', 'other', 'dance', 'vlog', 'variety'];
+const CATEGORIES: readonly VideoCategory[] = ['all', 'mv', 'shorts', 'stage', 'original', 'interview', 'other', 'dance', 'vlog', 'variety'];
 
 function text(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value.trim() || fallback : fallback;

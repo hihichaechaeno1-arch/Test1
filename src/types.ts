@@ -6,7 +6,7 @@ export type SortOrder = 'new' | 'old' | 'popular';
 
 /** Physical format is separate from inferred content category and source ownership. */
 export type VideoType = 'video' | 'shorts';
-export type VideoGenre = 'mv' | 'shorts' | 'stage' | 'original' | 'other';
+export type VideoGenre = 'mv' | 'shorts' | 'stage' | 'original' | 'interview' | 'other';
 export type VideoCategory = 'all' | VideoGenre | 'dance' | 'vlog' | 'variety';
 
 export interface Member {

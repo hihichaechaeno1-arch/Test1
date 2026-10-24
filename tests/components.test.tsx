@@ -14,6 +14,13 @@ const video: VideoItem = {
   duration: '未提供', views: '', description: 'Description',
 };
 
+test('interview cards show the 訪問 badge', () => {
+  const html = renderToStaticMarkup(
+    <VideoCard video={{ ...video, genre: 'interview', genres: ['interview'], title: '컴백인터뷰' }} selectedMembers={[]} />,
+  );
+  assert.match(html, /訪問/);
+});
+
 test('original cards show the 官方綜藝/物料 badge', () => {
   const html = renderToStaticMarkup(
     <VideoCard video={{ ...video, genre: 'original', genres: ['original'], title: "Season's Greetings Trailer" }} selectedMembers={[]} />,
