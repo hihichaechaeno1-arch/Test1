@@ -110,6 +110,14 @@ export function mapSupabaseRowToVideoItem(value: unknown): VideoItem {
   };
 }
 
+/**
+ * Stored-tag filter. Change match behavior only here.
+ * - no selection: every video
+ * - including (default) and legacy AND: members[] contains every selected name; extras allowed
+ * - only: members[] is exactly the selected set (same names, no extras)
+ * - legacy OR: at least one selected name is present
+ * Comparison uses stored members[] only. Tags are saved associations, not who is on screen.
+ */
 export function filterVideosByMembers(
   videos: VideoItem[], selectedMembers: MemberName[], matchMode: MemberMatchMode = 'including',
 ): VideoItem[] {
@@ -118,8 +126,9 @@ export function filterVideosByMembers(
   return videos.filter(video => {
     const members = normalizeMembers(video.members);
     if (matchMode === 'OR') return selected.some(member => members.includes(member));
-    return selected.every(member => members.includes(member)) &&
-      (matchMode !== 'only' || selected.length === members.length);
+    const containsAll = selected.every(member => members.includes(member));
+    if (!containsAll) return false;
+    return matchMode !== 'only' || selected.length === members.length;
   });
 }
 

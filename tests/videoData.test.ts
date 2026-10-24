@@ -238,6 +238,22 @@ test('filterVideosByMembers correctly handles "including" and "only" modes', () 
   // 3. Empty selection returns all videos (shows all videos when no member is selected)
   assert.deepEqual(filterVideosByMembers(pool, [], 'including'), pool);
   assert.deepEqual(filterVideosByMembers(pool, [], 'only'), pool);
+
+  const untagged: VideoItem = { ...soloCarmen, id: 'untagged', members: [], youtubeId: '55555555555' };
+  const jiwooIan: VideoItem = {
+    ...duoCarmenStella, id: 'jiwoo-ian', members: ['Ian', 'Jiwoo'], youtubeId: '66666666666',
+  };
+  const withUntagged = [...pool, untagged, jiwooIan];
+
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Jiwoo', 'Ian'], 'including').map(v => v.id), ['group-all', 'jiwoo-ian']);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Jiwoo', 'Ian'], 'only').map(v => v.id), ['jiwoo-ian']);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Ian', 'Jiwoo'], 'only').map(v => v.id), ['jiwoo-ian']);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Jiwoo'], 'including').map(v => v.id), ['trio-3', 'group-all', 'jiwoo-ian']);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Jiwoo'], 'only').map(v => v.id), []);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Carmen'], 'OR').map(v => v.id), ['solo-carmen', 'duo-carmen-stella', 'trio-3', 'group-all']);
+  assert.deepEqual(filterVideosByMembers(withUntagged, ['Carmen', 'Stella'], 'AND').map(v => v.id), ['duo-carmen-stella', 'trio-3', 'group-all']);
+  assert.deepEqual(filterVideosByMembers([untagged], ['Carmen'], 'including'), []);
+  assert.deepEqual(filterVideosByMembers([untagged], ['Carmen'], 'only'), []);
 });
 
 test('classifyVideoGenre accurately categorizes into 5 distinct types', () => {
@@ -267,6 +283,58 @@ test('classifyVideoGenre accurately categorizes into 5 distinct types', () => {
   assert.equal(classifyVideoGenre("[Teaser] Hearts2Hearts 'Next Chapter' MV Teaser #1", '', 'Hearts2Hearts'), 'other');
   assert.equal(classifyVideoGenre("Promotion Event in Japan BH2ND #1 (Behind)", '', 'Hearts2Hearts'), 'other');
   assert.equal(classifyVideoGenre("Hearts2Hearts Album Unboxing & Interview", '', 'Hearts2Hearts'), 'other');
+});
+
+test('stored mv/stage/original wins, while stored other still yields to a clear title cue', () => {
+  assert.equal(classifyVideoGenre("[Teaser] Hearts2Hearts 'FOCUS' MV Teaser", '', 'SMTOWN', '', 'mv'), 'mv');
+  assert.equal(classifyVideoGenre('둘셋하투하 EP.7', '', 'Hearts2Hearts', '', 'stage'), 'stage');
+  assert.equal(classifyVideoGenre('Hearts2Hearts JIWOO FanCam', '', 'MBCkpop', '', 'original'), 'original');
+  assert.equal(classifyVideoGenre('Random hashtag clip #Hearts2Hearts', '', 'Hearts2Hearts', '', 'other'), 'other');
+  const musicCore = mapSupabaseRowToVideoItem({
+    youtube_id: 'abcdefghijk',
+    type: 'other',
+    channel: 'MBCkpop',
+    title: 'Hearts2Hearts (하츠투하츠) - ICONIC HEART (Korean Ver.) | Show! MusicCore | MBC261017방송',
+  });
+  assert.equal(musicCore.type, 'video');
+  assert.equal(musicCore.genre, 'stage');
+});
+
+test('real title and channel cues stay out of other', () => {
+  assert.equal(
+    classifyVideoGenre("Hearts2Hearts 하츠투하츠 'ICONIC HEART (Korean Ver.)' MV", '', 'SMTOWN'),
+    'mv',
+  );
+  assert.equal(
+    classifyVideoGenre('ICONIC HEART (Korean Ver.) - Hearts2Hearts [뮤직뱅크/Music Bank] | KBS 261016 방송', '', 'KBS Kpop'),
+    'stage',
+  );
+  assert.equal(
+    classifyVideoGenre('[쇼챔직캠 4K] Hearts2Hearts JIWOO (하츠투하츠 지우) - Lemon Tang | Show Champion | EP.602 | 260708', '', 'ALL THE K-POP'),
+    'stage',
+  );
+  assert.equal(
+    classifyVideoGenre('轉學生 Hearts2Hearts | 아는 형님 520회', '', '아는형님 Knowingbros'),
+    'original',
+  );
+  assert.equal(
+    classifyVideoGenres('Cute moment', '', 'Hearts2Hearts', 'https://www.youtube.com/shorts/abcdefghijk', 'shorts')[0],
+    'shorts',
+  );
+  assert.equal(classifyVideoGenre('STYLE 手勢舞挑戰', '', '1theK'), 'other');
+  assert.equal(classifyVideoGenre("[Teaser] Hearts2Hearts 'The Chase' MV Teaser", '', 'SMTOWN'), 'other');
+  assert.equal(
+    classifyVideoGenre('#shorts #하츠투하츠 컴백인터뷰 (Hearts2Hearts Interview) [뮤직뱅크/Music Bank]', '', 'KBS Kpop'),
+    'other',
+  );
+  assert.equal(
+    classifyVideoGenre('[쇼챔 1위] Hearts2Hearts - Lemon Tang 수상소감 Full ver.', '', 'ALL THE K-POP'),
+    'other',
+  );
+  assert.equal(
+    classifyVideoGenre('hit you right #Hearts2Hearts #하츠투하츠 #H2H #15LOVE', '', 'Hearts2Hearts'),
+    'other',
+  );
 });
 
 

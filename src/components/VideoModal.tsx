@@ -5,7 +5,8 @@
 
 import React, { useEffect } from 'react';
 import { VideoItem, MemberName } from '../types';
-import { X, Youtube, ExternalLink, Calendar, Eye, Users, Sparkles } from 'lucide-react';
+import { getYoutubeId } from '../lib/videoData';
+import { X, Youtube, ExternalLink, Users, Sparkles } from 'lucide-react';
 
 interface VideoModalProps {
   video: VideoItem | null;
@@ -28,14 +29,26 @@ export const VideoModal: React.FC<VideoModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  if (!video) return null;
+  useEffect(() => {
+    if (!video) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [video]);
 
+  if (!video || video.isSample) return null;
+
+  // In-page playback is a YouTube embed. Opening YouTube remains the fallback.
+  // Instagram Reels are out of scope: there is no Meta auth and no Reel catalog.
+  const playbackId = getYoutubeId(video.youtubeId) || getYoutubeId(video.url);
   const isShorts = video.type === 'shorts';
+  const watchUrl = playbackId ? `https://www.youtube.com/watch?v=${playbackId}` : '';
 
   return (
     <div
       role="dialog"
       aria-modal="true"
+      aria-labelledby="playback-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/70 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
       onClick={onClose}
     >
@@ -50,9 +63,11 @@ export const VideoModal: React.FC<VideoModalProps> = ({
             <span>{isShorts ? 'Hearts2Hearts Shorts 播放器' : 'Hearts2Hearts 精選影片'}</span>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
             title="關閉 (ESC)"
+            aria-label="關閉"
           >
             <X className="w-5 h-5" />
           </button>
@@ -62,28 +77,28 @@ export const VideoModal: React.FC<VideoModalProps> = ({
         <div className="overflow-y-auto flex-1">
           {/* Video Player Display */}
           <div className="relative bg-black flex items-center justify-center">
-            {isShorts ? (
-              /* Shorts Vertical Display Frame */
+            {playbackId && isShorts ? (
               <div className="w-full max-w-[340px] aspect-[9/16] my-4 mx-auto rounded-xl overflow-hidden shadow-2xl relative bg-slate-950">
                 <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&mute=0&rel=0`}
+                  src={`https://www.youtube-nocookie.com/embed/${playbackId}?autoplay=1&rel=0`}
                   title={video.title}
                   className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            ) : playbackId ? (
+              <div className="w-full aspect-video">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${playbackId}?autoplay=1&rel=0`}
+                  title={video.title}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                 />
               </div>
             ) : (
-              /* 16:9 Standard Player Frame */
-              <div className="w-full aspect-video">
-                <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${video.youtubeId}?autoplay=1&rel=0`}
-                  title={video.title}
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
+              <p className="text-sm text-white px-6 py-16">這部影片沒有可用的 YouTube 編號，無法在頁內播放。</p>
             )}
           </div>
 
@@ -97,7 +112,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                 <span aria-hidden="true">·</span>
                 <span>{video.views}</span>
               </div>
-              <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug">
+              <h2 id="playback-title" className="text-lg sm:text-xl font-bold text-slate-900 leading-snug">
                 {video.title}
               </h2>
             </div>
@@ -122,7 +137,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
             <div>
               <div className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5 text-slate-400" />
-                <span>出演成員（點選可直接篩選該成員）：</span>
+                <span>成員標籤（點選可加入篩選）：</span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {video.members.map((memberName) => (
@@ -147,16 +162,18 @@ export const VideoModal: React.FC<VideoModalProps> = ({
           <span className="text-xs text-slate-400">
             按 ESC 鍵可隨時關閉
           </span>
-          <a
-            href={`https://www.youtube.com/watch?v=${video.youtubeId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shadow-xs"
-          >
-            <Youtube className="w-4 h-4" />
-            <span>在 YouTube 原網站開啟</span>
-            <ExternalLink className="w-3 h-3 ml-0.5" />
-          </a>
+          {watchUrl ? (
+            <a
+              href={watchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors shadow-xs"
+            >
+              <Youtube className="w-4 h-4" />
+              <span>在 YouTube 原網站開啟</span>
+              <ExternalLink className="w-3 h-3 ml-0.5" />
+            </a>
+          ) : <span />}
         </div>
       </div>
     </div>

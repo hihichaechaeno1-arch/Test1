@@ -83,16 +83,25 @@ function isVlogVarietyContent(title = '', description = '') {
 
 /**
  * Content classification without the Shorts-tab gate.
+ * Strong performance cues run before episode/variety markers so a Show Champion
+ * fancam titled "EP.602" is stage, not 綜藝. Teasers and behind-the-scenes stay other.
  * @returns {import('../types').VideoGenre}
  */
 function classifyContentGenre(title = '', description = '', channel = '', type = '') {
-  const supplementary = /commentary|코멘터리|teaser|티저|trailer|트레일러|behind|비하인드|bh2nd|making|메이킹|reaction|리액션|interview|인터뷰|recording|녹음|錄音|unboxing|언박싱|lyric|가사|cover|커버|幕後|幕后|cypher/iu.test(title);
-  if (supplementary) return 'other';
+  if (/teaser|티저|trailer|트레일러/iu.test(title)) return 'other';
+
+  // Speeches and lineup posts mention a music show but are not the performance.
+  const hardOther = /behind|비하인드|bh2nd|interview|인터뷰|making|메이킹|reaction|리액션|unboxing|언박싱|commentary|코멘터리|직캠보고서|幕後|幕后|수상소감|라인업|출챔/iu.test(title);
+  const fancam = /fancam|직캠|facecam|페이스캠|full\s*cam|풀캠/iu.test(title) && !/직캠보고서/iu.test(title);
+  const broadcast = /music\s*core|음악중심|music\s*bank|뮤직뱅크|show\s*champion|쇼챔|inkigayo|인기가요|m\s*countdown|엠카운트다운|가요대전|gayo daejeon|on the spot|온더스팟|performing artist/iu.test(title);
+  if ((fancam || broadcast) && !hardOther) return 'stage';
+  if (hardOther || /lyric|가사|\bcover\b|커버|\bcypher\b|recording|녹음|錄音/iu.test(title)) return 'other';
+
   if (type === 'mv' || /\bmv\b|m\/v|music video|뮤직비디오|official video|track video/iu.test(title)) return 'mv';
 
-  const variety = /아는\s*형님|knowing\s*bros|런닝맨|running\s*man|아이돌\s*인간극장|돌박이일|워크돌|동네스타k|문명특급|살롱드립|집대성|할명수|리무진서비스|vlog|브이로그|\bep\.?\s*\d|\bepisode\b|reality|리얼리티|자컨|diary|다이어리|團綜|예능|variety|隨筆|日记|日記|後台|后台|探險|探险|琴房/iu.test(title);
+  const variety = /아는\s*형님|knowing\s*bros|런닝맨|running\s*man|아이돌\s*인간극장|돌박이일|워크돌|동네스타k|문명특급|살롱드립|집대성|할명수|리무진서비스|vlog|브이로그|\bep\.?\s*\d|\bepisode\b|reality|리얼리티|자컨|diary|다이어리|團綜|예능|variety|隨筆|日记|日記|後台|后台|探險|探险|琴房|crunchy hearts|둘셋하투하|체아빙/iu.test(title);
   if (variety || type === 'original') return 'original';
-  if (type === 'stage' || /stage|fancam|직캠|facecam|페이스캠|인기가요|뮤직뱅크|음악중심|엠카운트다운|music bank|music core|m countdown|inkigayo|dance practice|안무|choreography|performance|퍼포먼스|showcase|쇼케이스|concert|콘서트|live clip|교차편집|원테이크|one take|fullcam|가요대전|gayo daejeon|무대|relay dance|舞台|直拍|the first take|first take|生唱|solo stage/iu.test(title)) return 'stage';
+  if (type === 'stage' || /\bstage\b|dance practice|안무|choreography|performance|퍼포먼스|showcase|쇼케이스|concert|콘서트|live clip|교차편집|원테이크|one take|무대|relay dance|舞台|直拍|the first take|first take|生唱|solo stage/iu.test(title)) return 'stage';
   if (/knowingbros|아는형님|런닝맨|jtbcentertainment/iu.test(channel)) return 'original';
   if (/sbskpop|kbs kpop|mbckpop|mnet|studio choom|the k-pop|it's live|sbs entertainment/iu.test(channel)) return 'stage';
   if (type === 'other') return 'other';
@@ -112,6 +121,7 @@ function classifyVideoGenres(title = '', description = '', channel = '', url = '
   const official = isOfficialHearts2HeartsChannel(channel, channelId);
   const shortsFormat = hasShortsFormatEvidence(title, description, url, type);
 
+  // Shorts tab stays official Hearts2Hearts Shorts/challenges only.
   if (shortsFormat && official) {
     /** @type {import('../types').VideoGenre[]} */
     const genres = ['shorts'];
@@ -119,11 +129,12 @@ function classifyVideoGenres(title = '', description = '', channel = '', url = '
     return genres;
   }
 
-  if (shortsFormat && !official) {
-    return [classifyContentGenre(title, description, channel, type === 'shorts' ? 'video' : type)];
-  }
+  // Stored mv/stage/original wins over the title heuristic. `video` and `shorts`
+  // are formats, and stored `other` is only the fallback when no clearer cue exists.
+  if (type === 'mv' || type === 'stage' || type === 'original') return [type];
 
-  return [classifyContentGenre(title, description, channel, type)];
+  const heuristicType = type === 'shorts' ? '' : type;
+  return [classifyContentGenre(title, description, channel, heuristicType)];
 }
 
 /**

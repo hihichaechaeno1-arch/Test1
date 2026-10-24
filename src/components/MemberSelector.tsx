@@ -5,7 +5,24 @@
 
 import React, { useState } from 'react';
 import { Member, MemberMatchMode, MemberName } from '../types';
-import { Check, RotateCcw, X, Users, Filter } from 'lucide-react';
+import { Check, RotateCcw, X, Users } from 'lucide-react';
+
+/** Single control for the two stored-tag modes. including = every selected tag; only = exact set. */
+export function memberMatchLabel(mode: MemberMatchMode): string {
+  return mode === 'only' ? '剛好等於' : '包含全部';
+}
+
+export function memberMatchHint(mode: MemberMatchMode, selected: readonly MemberName[] = []): string {
+  const names = selected.join('、');
+  if (mode === 'only') {
+    return names
+      ? `剛好等於：成員標籤必須正好是 ${names}，不能多也不能少。`
+      : '剛好等於：成員標籤必須和所選組合完全相同，不能多也不能少。';
+  }
+  return names
+    ? `包含全部：必須含有 ${names} 的每一個標籤，也可以再有其他成員。`
+    : '包含全部：必須含有每一個所選標籤，也可以再有其他成員。';
+}
 
 interface MemberSelectorProps {
   members: Member[];
@@ -105,10 +122,8 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
               {hasSelected ? `已選擇 ${selectedCount} 位成員` : '尚未選擇成員'}
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            {matchMode === 'only'
-              ? '「僅限 (Only)」模式：已儲存的成員標籤恰好等於所選組合；標籤未經實際出鏡核實'
-              : '「包含 (Including)」模式：必須包含全部所選標籤，也可包含其他標籤；不保證實際同框'}
+          <p id="member-match-hint" className="text-xs text-slate-500 mt-1">
+            {memberMatchHint(matchMode, selectedMembers)}
           </p>
         </div>
 
@@ -119,6 +134,7 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
             className="flex items-center p-1 bg-slate-100/90 rounded-xl text-xs font-semibold shrink-0"
             role="group"
             aria-label="成員篩選模式"
+            aria-describedby="member-match-hint"
           >
             <button
               type="button"
@@ -129,9 +145,9 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
                   ? 'bg-white text-rose-600 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="包含全部所選成員標籤（可有其他標籤）"
+              title="必須包含每一個所選標籤，其他成員標籤可以留著"
             >
-              <span>包含 (Including)</span>
+              <span>包含全部</span>
             </button>
             <button
               type="button"
@@ -142,9 +158,9 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
                   ? 'bg-white text-rose-600 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="已儲存的標籤恰好等於所選組合；不代表已核實出鏡"
+              title="成員標籤必須和所選組合完全相同"
             >
-              <span>僅限 (Only)</span>
+              <span>剛好等於</span>
             </button>
           </div>
 
@@ -238,27 +254,13 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
             ))}
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onMatchModeChange(matchMode === 'including' ? 'only' : 'including')}
-              className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/80 transition-colors cursor-pointer"
-              title="點擊切換 包含 / 僅限 模式"
-            >
-              <span>篩選：</span>
-              <strong className="text-rose-600 font-bold">
-                {matchMode === 'only' ? '僅限所選 (Only)' : '包含所選 (Including)'}
-              </strong>
-            </button>
-
-            <button
-              type="button"
-              onClick={onClearAll}
-              className="text-[11px] text-slate-400 hover:text-rose-600 underline transition-colors cursor-pointer"
-            >
-              全部清除
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClearAll}
+            className="text-[11px] text-slate-400 hover:text-rose-600 underline transition-colors cursor-pointer"
+          >
+            全部清除
+          </button>
         </div>
       )}
     </div>
